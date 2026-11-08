@@ -1,0 +1,21 @@
+
+# SQLite database
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environment
+.venv/
+venv/
+
+# Sensitive configuration
+.env
+.env.*
+
+# VS Code local settings
+.vscode/
