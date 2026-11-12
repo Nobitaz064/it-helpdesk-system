@@ -177,6 +177,75 @@ def get_tickets(viewer_id):
         conn.close()
 
 
+# =====================================
+# LESSON 2.3.2: SEARCH TICKET BY ID
+# =====================================
+
+def get_ticket_by_id(viewer_id, ticket_id):
+
+    # STEP 1: Validate input
+    if type(viewer_id) is not int or viewer_id <= 0:
+        raise ValueError("Invalid viewer ID")
+
+    if type(ticket_id) is not int or ticket_id <= 0:
+        raise ValueError("Invalid ticket ID")
+
+    conn = get_connection()
+
+    try:
+        # STEP 2: Check viewer role
+        user = conn.execute("""
+            SELECT ROLE
+            FROM USERS
+            WHERE USER_ID = ?
+        """, (viewer_id,)).fetchone()
+
+        if user is None:
+            raise ValueError("User does not exist")
+
+        role = user[0]
+
+        # STEP 3: Search ticket using JOIN
+        query = """
+            SELECT
+                T.TICKET_ID,
+                T.TITLE,
+                T.STATUS,
+                T.PRIORITY,
+                U.FULL_NAME AS REPORTER_NAME,
+                C.CATEGORY_NAME,
+                TECH.FULL_NAME AS TECHNICIAN_NAME
+            FROM TICKETS AS T
+            JOIN USERS AS U
+                ON T.REPORTER_ID = U.USER_ID
+            JOIN CATEGORIES AS C
+                ON T.CATEGORY_ID = C.CATEGORY_ID
+            LEFT JOIN USERS AS TECH
+                ON T.ASSIGNED_TO = TECH.USER_ID
+            WHERE T.TICKET_ID = ?
+        """
+
+        params = [ticket_id]
+
+        # STEP 4: Check viewing permission
+        if role == "employee":
+            query += " AND T.REPORTER_ID = ?"
+            params.append(viewer_id)
+
+        elif role == "technician":
+            query += " AND T.ASSIGNED_TO = ?"
+            params.append(viewer_id)
+
+        elif role != "admin":
+            raise ValueError("Invalid user role")
+
+        # STEP 5: Return one ticket
+        return conn.execute(query, params).fetchone()
+
+    finally:
+        conn.close()
+
+
 # STEP 8: Test the function
 if __name__ == "__main__":
     try:
