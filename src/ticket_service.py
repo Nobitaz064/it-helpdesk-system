@@ -331,6 +331,125 @@ def get_ticket_by_id(viewer_id, ticket_id):
         conn.close()
 
 
+# =====================================
+# LESSON 2.4: ASSIGN TECHNICIAN
+# =====================================
+
+def assign_ticket(ticket_id, technician_id, admin_id,
+                  note="Assigned to technician"):
+
+    # STEP 1: Validate input
+    for value in (ticket_id, technician_id, admin_id):
+        if type(value) is not int or value <= 0:
+            raise ValueError("Invalid user or ticket ID")
+
+    if not isinstance(note, str) or not note.strip():
+        raise ValueError("Assignment note cannot be empty")
+
+    note = note.strip()
+
+    if len(note) > 500:
+        raise ValueError("Assignment note is too long")
+
+    # STEP 2: Connect to database
+    conn = get_connection()
+
+    try:
+        # STEP 3: Start transaction
+        with conn:
+
+            # Check admin permission
+            admin = conn.execute("""
+                SELECT ROLE
+                FROM USERS
+                WHERE USER_ID = ?
+            """, (admin_id,)).fetchone()
+
+            if admin is None or admin[0] != "admin":
+                raise PermissionError(
+                    "Only admins can assign tickets"
+                )
+
+            # STEP 4: Check technician
+            technician = conn.execute("""
+                SELECT ROLE
+                FROM USERS
+                WHERE USER_ID = ?
+            """, (technician_id,)).fetchone()
+
+            if technician is None:
+                raise ValueError("Technician does not exist")
+
+            if technician[0] != "technician":
+                raise ValueError(
+                    "Assigned user must be a technician"
+                )
+
+            # STEP 5: Check ticket
+            ticket = conn.execute("""
+                SELECT STATUS, ASSIGNED_TO
+                FROM TICKETS
+                WHERE TICKET_ID = ?
+            """, (ticket_id,)).fetchone()
+
+            if ticket is None:
+                raise ValueError("Ticket does not exist")
+
+            old_status, assigned_to = ticket
+
+            if old_status != "open":
+                raise ValueError(
+                    "Only open tickets can be assigned"
+                )
+
+            if assigned_to is not None:
+                raise ValueError(
+                    "Ticket already has a technician"
+                )
+
+            # STEP 6: Update ticket
+            cursor = conn.execute("""
+                UPDATE TICKETS
+                SET
+                    ASSIGNED_TO = ?,
+                    STATUS = 'in_progress',
+                    UPDATED_AT = CURRENT_TIMESTAMP
+                WHERE TICKET_ID = ?
+                  AND STATUS = 'open'
+                  AND ASSIGNED_TO IS NULL
+            """, (technician_id, ticket_id))
+
+            if cursor.rowcount != 1:
+                raise RuntimeError(
+                    "Ticket assignment conflict"
+                )
+
+            # STEP 7: Record history
+            conn.execute("""
+                INSERT INTO TICKET_HISTORY
+                (
+                    TICKET_ID,
+                    CHANGED_BY,
+                    OLD_STATUS,
+                    NEW_STATUS,
+                    NOTE
+                )
+                VALUES (?, ?, ?, ?, ?)
+            """, (
+                ticket_id,
+                admin_id,
+                old_status,
+                "in_progress",
+                f"Assigned to technician #{technician_id}. {note}"
+            ))
+
+        # STEP 8: Return after successful commit
+        return ticket_id
+
+    finally:
+        conn.close()
+
+
 # STEP 8: Test the function
 if __name__ == "__main__":
     try:
