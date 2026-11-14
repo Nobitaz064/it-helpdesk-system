@@ -102,13 +102,39 @@ def create_ticket(title, description, reporter_id,
 # LESSON 2.3: VIEW TICKETS
 # =====================================
 
-def get_tickets(viewer_id):
+
+# =====================================
+# HELPER: ESCAPE LIKE CHARACTERS
+# =====================================
+
+def escape_like(text):
+    return (
+        text.replace("!", "!!")
+            .replace("%", "!%")
+            .replace("_", "!_")
+    )
+
+
+def get_tickets(viewer_id, keyword=None):
 
     # STEP 1: Validate viewer ID
     if type(viewer_id) is not int or viewer_id <= 0:
         raise ValueError("Invalid viewer ID")
 
     conn = get_connection()
+
+
+    # STEP 1.5: Validate keyword
+    if keyword is not None:
+
+        if not isinstance(keyword, str):
+            raise ValueError("Keyword must be a string")
+
+        keyword = keyword.strip()
+
+        if len(keyword) > 100:
+            raise ValueError("Keyword is too long")
+
 
     try:
         # STEP 2: Get viewer role
@@ -161,6 +187,21 @@ def get_tickets(viewer_id):
 
         elif role != "admin":
             raise ValueError("Invalid user role")
+        
+        
+        # STEP 4.5: Search by keyword
+        if keyword:
+            query += """
+                AND (
+                    T.TITLE LIKE ? ESCAPE '!'
+                    OR T.DESCRIPTION LIKE ? ESCAPE '!'
+                )
+            """
+
+            pattern = f"%{escape_like(keyword)}%"
+
+            params.extend([pattern, pattern])
+
 
         # STEP 5: Sort tickets
         query += " ORDER BY T.TICKET_ID DESC"
