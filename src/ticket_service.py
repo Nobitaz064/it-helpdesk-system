@@ -115,14 +115,19 @@ def escape_like(text):
     )
 
 
-def get_tickets(viewer_id, keyword=None):
+
+def get_tickets(
+    viewer_id,
+    keyword=None,
+    status=None,
+    priority=None,
+    category_id=None
+):
+
 
     # STEP 1: Validate viewer ID
     if type(viewer_id) is not int or viewer_id <= 0:
         raise ValueError("Invalid viewer ID")
-
-    conn = get_connection()
-
 
     # STEP 1.5: Validate keyword
     if keyword is not None:
@@ -136,6 +141,29 @@ def get_tickets(viewer_id, keyword=None):
             raise ValueError("Keyword is too long")
 
 
+    # STEP 1.6: Validate filters
+    valid_statuses = (
+        "open", "in_progress", "resolved", "closed"
+    )
+
+    valid_priorities = (
+        "low", "medium", "high", "critical"
+    )
+
+    if status is not None:
+        if type(status) is not str or status not in valid_statuses:
+            raise ValueError("Invalid status")
+
+    if priority is not None:
+        if type(priority) is not str or priority not in valid_priorities:
+            raise ValueError("Invalid priority")
+
+    if category_id is not None:
+        if type(category_id) is not int or category_id <= 0:
+            raise ValueError("Invalid category ID")
+
+    conn = get_connection()
+    
     try:
         # STEP 2: Get viewer role
         user = conn.execute("""
@@ -201,6 +229,22 @@ def get_tickets(viewer_id, keyword=None):
             pattern = f"%{escape_like(keyword)}%"
 
             params.extend([pattern, pattern])
+
+
+        # STEP 4.6: Filter by status
+        if status is not None:
+            query += " AND T.STATUS = ?"
+            params.append(status)
+
+        # STEP 4.7: Filter by priority
+        if priority is not None:
+            query += " AND T.PRIORITY = ?"
+            params.append(priority)
+
+        # STEP 4.8: Filter by category
+        if category_id is not None:
+            query += " AND T.CATEGORY_ID = ?"
+            params.append(category_id)
 
 
         # STEP 5: Sort tickets
