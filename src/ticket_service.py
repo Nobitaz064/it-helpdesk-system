@@ -452,6 +452,7 @@ def assign_ticket(ticket_id, technician_id, admin_id,
 
 # STEP 8: Test the function
 if __name__ == "__main__":
+    print("Use separate commands to test ticket services.")
     try:
         new_id = create_ticket(
             title="Laptop cannot turn on",
