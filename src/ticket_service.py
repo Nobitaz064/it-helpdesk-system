@@ -450,6 +450,138 @@ def assign_ticket(ticket_id, technician_id, admin_id,
         conn.close()
 
 
+# =====================================
+# LESSON 2.5: UPDATE TICKET STATUS
+# =====================================
+
+def update_ticket_status(ticket_id, new_status,
+                         actor_id, note):
+
+    # STEP 1: Validate input
+    if type(ticket_id) is not int or ticket_id <= 0:
+        raise ValueError("Invalid ticket ID")
+
+    if type(actor_id) is not int or actor_id <= 0:
+        raise ValueError("Invalid actor ID")
+
+    valid_statuses = (
+        "in_progress", "resolved", "closed"
+    )
+
+    if type(new_status) is not str or new_status not in valid_statuses:
+        raise ValueError("Invalid new status")
+
+    if not isinstance(note, str) or not note.strip():
+        raise ValueError("Status update note cannot be empty")
+
+    note = note.strip()
+
+    if len(note) > 500:
+        raise ValueError("Note is too long")
+
+    # STEP 2: Connect to database
+    conn = get_connection()
+
+    try:
+        # STEP 3: Begin transaction
+        with conn:
+
+            # Check actor
+            actor = conn.execute("""
+                SELECT ROLE
+                FROM USERS
+                WHERE USER_ID = ?
+            """, (actor_id,)).fetchone()
+
+            if actor is None:
+                raise ValueError("User does not exist")
+
+            role = actor[0]
+
+            # STEP 4: Get current ticket information
+            ticket = conn.execute("""
+                SELECT STATUS, REPORTER_ID, ASSIGNED_TO
+                FROM TICKETS
+                WHERE TICKET_ID = ?
+            """, (ticket_id,)).fetchone()
+
+            if ticket is None:
+                raise ValueError("Ticket does not exist")
+
+            old_status, reporter_id, technician_id = ticket
+
+            # STEP 5: Check valid status transitions
+            allowed_transitions = (
+                ("in_progress", "resolved"),
+                ("resolved", "closed"),
+                ("resolved", "in_progress")
+            )
+
+            if (old_status, new_status) not in allowed_transitions:
+                raise ValueError(
+                    "Invalid ticket status transition"
+                )
+
+            # STEP 6: Check permissions
+            if new_status == "resolved":
+
+                if role != "technician" or technician_id != actor_id:
+                    raise PermissionError(
+                        "Only the assigned technician can resolve this ticket"
+                    )
+
+            elif new_status in ("closed", "in_progress"):
+
+                if role != "employee" or reporter_id != actor_id:
+                    raise PermissionError(
+                        "Only the ticket reporter can close or reopen it"
+                    )
+
+            # STEP 7: Update current status
+            cursor = conn.execute("""
+                UPDATE TICKETS
+                SET
+                    STATUS = ?,
+                    UPDATED_AT = CURRENT_TIMESTAMP
+                WHERE TICKET_ID = ?
+                  AND STATUS = ?
+            """, (
+                new_status,
+                ticket_id,
+                old_status
+            ))
+
+            if cursor.rowcount != 1:
+                raise RuntimeError(
+                    "Ticket status update conflict"
+                )
+
+            # STEP 8: Record ticket history
+            conn.execute("""
+                INSERT INTO TICKET_HISTORY
+                (
+                    TICKET_ID,
+                    CHANGED_BY,
+                    OLD_STATUS,
+                    NEW_STATUS,
+                    NOTE
+                )
+                VALUES (?, ?, ?, ?, ?)
+            """, (
+                ticket_id,
+                actor_id,
+                old_status,
+                new_status,
+                note
+            ))
+
+        # STEP 9: Return after commit
+        return ticket_id
+
+    finally:
+        conn.close()
+
+
 # STEP 8: Test the function
 if __name__ == "__main__":
     print("Use separate commands to test ticket services.")
