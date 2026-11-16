@@ -585,16 +585,3 @@ def update_ticket_status(ticket_id, new_status,
 # STEP 8: Test the function
 if __name__ == "__main__":
     print("Use separate commands to test ticket services.")
-    try:
-        new_id = create_ticket(
-            title="Laptop cannot turn on",
-            description="Laptop does not power on.",
-            reporter_id=1,
-            category_id=2,
-            priority="high"
-        )
-
-        print(f"Ticket #{new_id} created successfully!")
-
-    except (ValueError, sqlite3.Error) as error:
-        print("Error:", error)
