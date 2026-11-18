@@ -2,7 +2,15 @@
 import sqlite3
 import streamlit as st
 
-from src.ticket_service import get_tickets
+
+from src.ticket_service import get_tickets, update_ticket_status
+
+# Display success message after rerun
+if "resolve_success" in st.session_state:
+    st.success(
+        st.session_state.pop("resolve_success")
+    )
+
 
 
 # =====================================
@@ -128,3 +136,91 @@ else:
     st.info(
         "No assigned tickets match your search or filters."
     )
+
+
+# =====================================
+# LESSON 3.3.2: RESOLVE TICKET
+# =====================================
+
+st.divider()
+st.header("Resolve Ticket")
+
+# STEP 1: Load tickets ready for resolution
+try:
+    active_tickets = get_tickets(
+        viewer_id=TECHNICIAN_ID,
+        status="in_progress"
+    )
+
+except (ValueError, FileNotFoundError, sqlite3.Error) as error:
+    st.error(f"Cannot load active tickets: {error}")
+    st.stop()
+
+
+# STEP 2: Check available tickets
+if not active_tickets:
+    st.info("No tickets are currently in progress.")
+
+else:
+    ticket_titles = {
+        ticket[0]: ticket[1]
+        for ticket in active_tickets
+    }
+
+    # STEP 3: Create resolution form
+    with st.form("resolve_ticket_form"):
+
+        selected_ticket_id = st.selectbox(
+            "Select Ticket",
+            options=list(ticket_titles.keys()),
+            format_func=lambda tid: (
+                f"#{tid} - {ticket_titles[tid]}"
+            )
+        )
+
+        note = st.text_area(
+            "Troubleshooting Notes",
+            max_chars=500,
+            placeholder=(
+                "Describe the problem, troubleshooting "
+                "steps, and final solution..."
+            )
+        )
+
+        submitted = st.form_submit_button(
+            "Mark as Resolved"
+        )
+
+    # STEP 4: Process resolution
+    if submitted:
+
+        if not note.strip():
+            st.error(
+                "Troubleshooting notes cannot be empty."
+            )
+
+        else:
+            try:
+                update_ticket_status(
+                    ticket_id=selected_ticket_id,
+                    new_status="resolved",
+                    actor_id=TECHNICIAN_ID,
+                    note=note
+                )
+
+            except (
+                ValueError,
+                PermissionError,
+                RuntimeError,
+                FileNotFoundError,
+                sqlite3.Error
+            ) as error:
+                st.error(f"Cannot resolve ticket: {error}")
+
+            else:
+                st.session_state["resolve_success"] = (
+                    f"Ticket #{selected_ticket_id} "
+                    "resolved successfully!"
+                )
+
+                st.rerun()
