@@ -5,12 +5,6 @@ import streamlit as st
 
 from src.ticket_service import get_tickets, update_ticket_status
 
-# Display success message after rerun
-if "resolve_success" in st.session_state:
-    st.success(
-        st.session_state.pop("resolve_success")
-    )
-
 
 
 # =====================================
@@ -37,6 +31,11 @@ st.sidebar.info(
 st.caption(
     "Demo account only. Authentication is not implemented."
 )
+
+if "resolve_success" in st.session_state:
+    st.success(st.session_state.pop("resolve_success"))
+    st.session_state.pop("resolve_ticket", None)
+    st.session_state.pop("resolve_note", None)
 
 
 # =====================================
@@ -173,9 +172,11 @@ else:
         selected_ticket_id = st.selectbox(
             "Select Ticket",
             options=list(ticket_titles.keys()),
+            index=None,
             format_func=lambda tid: (
                 f"#{tid} - {ticket_titles[tid]}"
-            )
+            ),
+            key="resolve_ticket",
         )
 
         note = st.text_area(
@@ -184,7 +185,8 @@ else:
             placeholder=(
                 "Describe the problem, troubleshooting "
                 "steps, and final solution..."
-            )
+            ),
+            key="resolve_note",
         )
 
         submitted = st.form_submit_button(
@@ -194,7 +196,10 @@ else:
     # STEP 4: Process resolution
     if submitted:
 
-        if not note.strip():
+        if selected_ticket_id is None:
+            st.error("Select a ticket to resolve.")
+
+        elif not note.strip():
             st.error(
                 "Troubleshooting notes cannot be empty."
             )
