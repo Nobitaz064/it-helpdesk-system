@@ -168,7 +168,7 @@ try:
         st.dataframe(
             ticket_data,
             hide_index=True,
-            use_container_width=True
+            width="stretch"
         )
 
     else:

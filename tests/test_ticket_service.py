@@ -4,43 +4,20 @@ import tempfile
 import unittest
 
 from pathlib import Path
-from contextlib import closing
 from unittest.mock import patch
 
-from src.db import DB_PATH
-import src.ticket_service as service
+from database import init_db
+from src import db, ticket_service as service
 
 
 class TestTicketService(unittest.TestCase):
 
     def setUp(self):
-        # STEP 1: Create temporary directory
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.addCleanup(self.temp_dir.cleanup)
-
-        self.test_db = (
-            Path(self.temp_dir.name) / "helpdesk_test.db"
-        )
-
-        # STEP 2: Copy database safely
-        with closing(sqlite3.connect(DB_PATH)) as source:
-            with closing(sqlite3.connect(self.test_db)) as target:
-                source.backup(target)
-
-        # STEP 3: Redirect service to test database
-        def test_connection():
-            conn = sqlite3.connect(self.test_db)
-            conn.execute("PRAGMA foreign_keys = ON")
-            return conn
-
-        patcher = patch.object(
-            service,
-            "get_connection",
-            side_effect=test_connection
-        )
-
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        temp_dir = self.enterContext(tempfile.TemporaryDirectory())
+        db_path = Path(temp_dir) / "helpdesk_test.db"
+        self.enterContext(patch.object(init_db, "DB_PATH", db_path))
+        self.enterContext(patch.object(db, "DB_PATH", db_path))
+        init_db.init_db()
 
     # =====================================
     # TEST 1: INPUT VALIDATION
