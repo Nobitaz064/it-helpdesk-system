@@ -1,119 +1,61 @@
 # IT Helpdesk & Asset Management System
 
-## Project Overview
+A portfolio project that simulates IT support for a small company. The current application manages support tickets from submission through assignment, troubleshooting, and closure. It uses Python for business rules, SQLite for storage, and Streamlit for the interface.
 
-A portfolio project designed to simulate IT support ticket management for a small company.
+## Run locally on Windows
 
-The system helps employees report technical issues and allows IT technicians to track, troubleshoot, and resolve support requests.
-
-## Project Objectives
-
-- Create and manage IT support tickets.
-- Assign tickets to IT technicians.
-- Track ticket status and priority.
-- Record troubleshooting history.
-- Develop a web interface using Streamlit.
-- Extend the system with asset management and Power BI analytics in future phases.
-
-## Technology Stack
-
-- **Python:** Backend business logic and automated testing
-- **SQLite:** Database
-- **Streamlit:** Web interface (planned)
-- **SQL:** Database operations
-- **Git & GitHub:** Version control
-
-## User Roles
-
-- **Employee:** Create and track support tickets.
-- **Technician:** Manage assigned tickets and record troubleshooting activities.
-- **Admin:** Assign technicians and monitor ticket activities.
-
-## Ticket Workflow
-
-Open → In Progress → Resolved → Closed
-
-A resolved ticket can return to In Progress if the issue persists.
-
-## Database Design
-
-The initial database contains four tables:
-
-1. `USERS`
-2. `CATEGORIES`
-3. `TICKETS`
-4. `TICKET_HISTORY`
-
-## Project Progress
-
-### Week 1 — Planning & Database Design
-
-- [x] Define project requirements.
-- [x] Design ticket workflow.
-- [x] Create database schema.
-- [x] Initialize SQLite database.
-- [x] Insert sample data.
-- [x] Test ticket lifecycle and history.
-
-
-### Week 2 — Python & SQL Development
-
-- [x] Connect Python to SQLite.
-- [x] Implement ticket creation.
-- [x] Implement ticket viewing and searching.
-- [x] Filter tickets by status, priority, and category.
-- [x] Implement technician assignment.
-- [x] Implement ticket status updates.
-- [x] Record ticket history.
-- [x] Implement role-based business rules.
-- [x] Add automated unit tests.
-- [x] Test database integrity and transactions.
-- [x] Create database initialization script.
-
-### Week 3 — Streamlit Web Interface
-
-- [ ] Build the web interface.
-- [ ] Create ticket submission form.
-- [ ] Display and search tickets.
-- [ ] Implement technician dashboard.
-- [ ] Implement admin dashboard.
-- [ ] Connect Streamlit to SQLite.
-
-### Week 4 — Final Testing & Portfolio
-
-- [ ] Perform end-to-end testing.
-- [ ] Improve error handling and usability.
-- [ ] Document screenshots and test results.
-- [ ] Finalize README and GitHub portfolio.
-
-## Database Setup
-
-To initialize the database on a new computer:
+Use Python 3.11 or later. Run the following commands from the repository folder in PowerShell.
 
 ```powershell
-py database/init_db.py
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe database/init_db.py
+.\.venv\Scripts\python.exe -m streamlit run app.py
 ```
 
-The script creates the database schema and initial sample
-users and categories if the database file does not exist.
+Open the local URL printed by Streamlit. The setup script creates `database/helpdesk.db` with demo users and ticket categories when the file is missing. Create a ticket from the dashboard to start the demo. Git ignores the local database file.
 
-The SQLite database file is excluded from Git.
+## Try the ticket workflow
 
-## Run Backend Tests
+The pages use fixed demo identities. Use the Streamlit sidebar to navigate between dashboards.
+
+| Step | Dashboard | Action | Result |
+| --- | --- | --- | --- |
+| 1 | Employee (An) | Create a ticket for a Wi-Fi issue. | Status is `open`. |
+| 2 | Admin (Chi) | Assign the ticket to Binh. | Status is `in_progress`. |
+| 3 | Technician (Binh) | Add troubleshooting notes and select **Mark as Resolved**. | Status is `resolved`. |
+| 4 | Employee (An) | Select **Reopen Ticket** and describe the remaining issue. | Status returns to `in_progress`. Binh keeps the assignment. |
+| 5 | Technician (Binh) | Fix the remaining issue and mark the ticket resolved again. | Status is `resolved`. |
+| 6 | Employee (An) | Select **Close Ticket** and confirm the fix. | Status is `closed`. |
+
+The Admin dashboard also displays totals by status and offers search and filters. The Technician dashboard shows assigned tickets. Users can follow the full state transitions in the [ticket workflow](docs/ticket_workflow.md).
+
+## How the system works
+
+1. The [Employee Dashboard](app.py), [Technician Dashboard](pages/1_Technician_Dashboard.py), and [Admin Dashboard](pages/2_Admin_Dashboard.py) collect input and display the latest ticket data.
+2. The [ticket service](src/ticket_service.py) validates input, checks role and ownership rules, and applies allowed status transitions.
+3. SQLite stores the current record in `TICKETS` and logs the actor, status, and note in `TICKET_HISTORY`. A transaction commits each ticket update together with its history entry.
+
+The [database design](docs/erd.md) describes the relationships between `USERS`, `CATEGORIES`, `TICKETS`, and `TICKET_HISTORY`. See the [requirements](docs/requirement.md) for the project scope.
+
+## Run the tests
+
+Run the following command after installing the dependencies.
 
 ```powershell
-py -m unittest discover -s tests -p "test_*.py" -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-## Current Status
+The tests initialize temporary SQLite databases, so you can run them before creating the app's database. They cover input validation, role and ownership checks, transaction rollback, and stale forms. The [workflow test](tests/test_ticket_workflow.py) uses Streamlit `AppTest` to simulate the six steps above across three dashboards and check all six history entries in order.
 
-Week 1 and Week 2 development completed.
+All 11 automated tests passed with Python 3.14.10 and Streamlit 1.67.0.
 
-The project currently supports ticket creation, viewing,
-searching, filtering, technician assignment, status updates,
-ticket history, and automated backend testing.
+## Project progress
 
-Week 3 focuses on building the Streamlit web interface.
+- [x] Week 1 — Requirements, database design, and SQLite schema.
+- [x] Week 2 — Python ticket service, role checks, and transaction tests.
+- [x] Week 3 — Streamlit dashboards, assignment, resolution, and close or reopen.
+- [x] Week 4 — Automated workflow testing and local setup documentation.
+- [ ] Week 4 — Usability review, screenshots, and GitHub portfolio.
 
-Asset Management and Power BI analytics are planned
-for future development.
+Asset management and Power BI analytics are planned for future phases.
