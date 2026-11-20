@@ -34,8 +34,8 @@ st.caption(
 
 if "resolve_success" in st.session_state:
     st.success(st.session_state.pop("resolve_success"))
-    st.session_state.pop("resolve_ticket", None)
-    st.session_state.pop("resolve_note", None)
+    st.session_state["resolve_ticket"] = None
+    st.session_state["resolve_note"] = ""
 
 
 # =====================================

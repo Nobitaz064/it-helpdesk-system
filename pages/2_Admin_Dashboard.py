@@ -16,8 +16,9 @@ st.caption("This dashboard uses a demo account without login authentication.")
 
 if "assignment_success" in st.session_state:
     st.success(st.session_state.pop("assignment_success"))
-    for key in ("assignment_ticket", "assignment_technician", "assignment_note"):
-        st.session_state.pop(key, None)
+    st.session_state["assignment_ticket"] = None
+    st.session_state["assignment_technician"] = None
+    st.session_state["assignment_note"] = ""
 
 
 # =====================================

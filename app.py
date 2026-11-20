@@ -26,18 +26,11 @@ st.set_page_config(
 )
 
 
-# Display ticket creation result and clear the saved draft.
+# Display ticket creation result after the form version has changed.
 create_message = st.session_state.pop("employee_create_success", None)
 
 if create_message:
     st.success(create_message)
-    for key in (
-        "employee_create_title",
-        "employee_create_description",
-        "employee_create_category",
-        "employee_create_priority",
-    ):
-        st.session_state.pop(key, None)
 
 
 # Display ticket review result
@@ -47,9 +40,9 @@ review_message = st.session_state.pop(
 
 if review_message:
     st.success(review_message)
-    st.session_state.pop("employee_review_ticket", None)
-    st.session_state.pop("employee_review_action", None)
-    st.session_state.pop("employee_review_note", None)
+    st.session_state["employee_review_ticket"] = None
+    st.session_state["employee_review_action"] = None
+    st.session_state["employee_review_note"] = ""
 
 
 # STEP 2: Simulated employee
@@ -100,33 +93,30 @@ if not categories:
 
 st.header("Create New Ticket")
 
-with st.form("create_ticket_form"):
+create_form_version = st.session_state.get("employee_create_form_version", 0)
+with st.form(f"create_ticket_form_{create_form_version}"):
 
     title = st.text_input(
         "Ticket Title",
         max_chars=120,
-        placeholder="Example: Cannot connect to Wi-Fi",
-        key="employee_create_title",
+        placeholder="Example: Cannot connect to Wi-Fi"
     )
 
     description = st.text_area(
         "Description",
-        placeholder="Describe the problem in detail...",
-        key="employee_create_description",
+        placeholder="Describe the problem in detail..."
     )
 
     category_id = st.selectbox(
         "Category",
         options=list(categories.keys()),
-        format_func=lambda cid: categories[cid],
-        key="employee_create_category",
+        format_func=lambda cid: categories[cid]
     )
 
     priority = st.selectbox(
         "Priority",
         options=["low", "medium", "high", "critical"],
-        index=1,
-        key="employee_create_priority",
+        index=1
     )
 
     submitted = st.form_submit_button(
@@ -156,6 +146,8 @@ if submitted:
         st.session_state["employee_create_success"] = (
             f"Ticket #{ticket_id} created successfully!"
         )
+        # Use a fresh form ID so the browser discards the submitted draft.
+        st.session_state["employee_create_form_version"] = create_form_version + 1
         st.rerun()
 
 
