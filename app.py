@@ -26,6 +26,20 @@ st.set_page_config(
 )
 
 
+# Display ticket creation result and clear the saved draft.
+create_message = st.session_state.pop("employee_create_success", None)
+
+if create_message:
+    st.success(create_message)
+    for key in (
+        "employee_create_title",
+        "employee_create_description",
+        "employee_create_category",
+        "employee_create_priority",
+    ):
+        st.session_state.pop(key, None)
+
+
 # Display ticket review result
 review_message = st.session_state.pop(
     "employee_review_success", None
@@ -86,29 +100,33 @@ if not categories:
 
 st.header("Create New Ticket")
 
-with st.form("create_ticket_form", clear_on_submit=True):
+with st.form("create_ticket_form"):
 
     title = st.text_input(
         "Ticket Title",
         max_chars=120,
-        placeholder="Example: Cannot connect to Wi-Fi"
+        placeholder="Example: Cannot connect to Wi-Fi",
+        key="employee_create_title",
     )
 
     description = st.text_area(
         "Description",
-        placeholder="Describe the problem in detail..."
+        placeholder="Describe the problem in detail...",
+        key="employee_create_description",
     )
 
     category_id = st.selectbox(
         "Category",
         options=list(categories.keys()),
-        format_func=lambda cid: categories[cid]
+        format_func=lambda cid: categories[cid],
+        key="employee_create_category",
     )
 
     priority = st.selectbox(
         "Priority",
         options=["low", "medium", "high", "critical"],
-        index=1
+        index=1,
+        key="employee_create_priority",
     )
 
     submitted = st.form_submit_button(
@@ -135,9 +153,10 @@ if submitted:
         st.error(f"Cannot create ticket: {error}")
 
     else:
-        st.success(
+        st.session_state["employee_create_success"] = (
             f"Ticket #{ticket_id} created successfully!"
         )
+        st.rerun()
 
 
 # =====================================

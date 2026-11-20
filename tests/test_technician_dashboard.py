@@ -50,6 +50,11 @@ class TestTechnicianDashboard(unittest.TestCase):
         self.assertIsNone(dashboard.selectbox(key="resolve_ticket").value)
         self.assertEqual(dashboard.text_area(key="resolve_note").value, "")
 
+    def test_search_input_limits_keywords_to_100_characters(self):
+        dashboard = self.open_dashboard()
+        search = next(widget for widget in dashboard.text_input if widget.label == "Search Tickets")
+        self.assertEqual(search.proto.max_chars, 100)
+
     def test_stale_selection_does_not_resolve_another_ticket(self):
         stale_dashboard = self.open_dashboard()
         stale_dashboard.selectbox(key="resolve_ticket").set_value(self.first_ticket)

@@ -45,6 +45,39 @@ class TestEmployeeDashboard(unittest.TestCase):
         button.click().run()
         self.assertFalse(dashboard.exception)
 
+    def test_creation_keeps_failed_draft_and_resets_after_success(self):
+        dashboard = self.open_dashboard()
+        description = "The printer on floor 2 shows a paper jam."
+        dashboard.text_area(key="employee_create_description").set_value(description)
+        dashboard.selectbox(key="employee_create_category").set_value(2)
+        dashboard.selectbox(key="employee_create_priority").set_value("critical")
+        submit = next(button for button in dashboard.button if button.label == "Submit Ticket")
+        submit.click().run()
+
+        self.assertFalse(dashboard.exception)
+        self.assertEqual(dashboard.error[0].value, "Cannot create ticket: Ticket title cannot be empty")
+        self.assertEqual(dashboard.text_area(key="employee_create_description").value, description)
+        self.assertEqual(dashboard.selectbox(key="employee_create_category").value, 2)
+        self.assertEqual(dashboard.selectbox(key="employee_create_priority").value, "critical")
+        self.assertEqual(len(ticket_service.get_tickets(1)), 2)
+
+        title = "Cannot print on floor 2"
+        dashboard.text_input(key="employee_create_title").set_value(title)
+        submit = next(button for button in dashboard.button if button.label == "Submit Ticket")
+        submit.click().run()
+
+        self.assertFalse(dashboard.exception)
+        self.assertFalse(dashboard.error)
+        self.assertEqual(dashboard.text_input(key="employee_create_title").value, "")
+        self.assertEqual(dashboard.text_area(key="employee_create_description").value, "")
+        self.assertEqual(dashboard.selectbox(key="employee_create_category").value, 1)
+        self.assertEqual(dashboard.selectbox(key="employee_create_priority").value, "medium")
+        ticket = dashboard.dataframe[0].value.set_index("Title").loc[title]
+        self.assertEqual((ticket["Status"], ticket["Category"], ticket["Priority"]), (
+            "open", "Hardware", "critical"
+        ))
+        self.assertIn("created successfully!", dashboard.success[0].value)
+
     def test_success_resets_form_while_another_ticket_is_available(self):
         dashboard = self.open_dashboard()
         self.set_review(dashboard, "Close Ticket", "I confirmed the fix.")
