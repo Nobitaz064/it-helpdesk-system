@@ -38,6 +38,22 @@ The Admin dashboard also displays totals by status and offers search and filters
 
 The [database design](docs/erd.md) describes the relationships between `USERS`, `CATEGORIES`, `TICKETS`, and `TICKET_HISTORY`. See the [requirements](docs/requirement.md) for the project scope.
 
+## Dashboard screenshots
+
+These screenshots use a temporary database populated with fictional support requests.
+
+### Admin overview
+
+![Admin dashboard with the ticket overview and search filters](docs/screenshots/admin-dashboard.jpg)
+
+### Employee tickets
+
+![Employee dashboard showing My Tickets and Review Resolved Tickets](docs/screenshots/employee-dashboard.jpg)
+
+### Technician queue
+
+![Technician dashboard showing Binh's assigned tickets and search controls](docs/screenshots/technician-dashboard.jpg)
+
 ## Run the tests
 
 Run the following command after installing the dependencies.
@@ -48,7 +64,7 @@ Run the following command after installing the dependencies.
 
 The tests initialize temporary SQLite databases, so you can run them before creating the app's database. They cover input validation, role and ownership checks, transaction rollback, and stale forms. The [workflow test](tests/test_ticket_workflow.py) uses Streamlit `AppTest` to simulate the six steps above across three dashboards and check all six history entries in order.
 
-All 11 automated tests passed with Python 3.14.10 and Streamlit 1.67.0.
+All 13 automated tests passed with Python 3.14.10 and Streamlit 1.67.0. A browser smoke test also exercised creation, assignment, resolution, reopening, and closure. Use the [manual test cases](docs/ticket_workflow.md#6-manual-test-cases) to repeat the checks and inspect the SQLite history.
 
 ## Project progress
 
@@ -56,6 +72,6 @@ All 11 automated tests passed with Python 3.14.10 and Streamlit 1.67.0.
 - [x] Week 2 — Python ticket service, role checks, and transaction tests.
 - [x] Week 3 — Streamlit dashboards, assignment, resolution, and close or reopen.
 - [x] Week 4 — Automated workflow testing and local setup documentation.
-- [ ] Week 4 — Usability review, screenshots, and GitHub portfolio.
+- [x] Week 4 — Browser usability checks, screenshots, and manual test cases.
 
 Asset management and Power BI analytics are planned for future phases.
