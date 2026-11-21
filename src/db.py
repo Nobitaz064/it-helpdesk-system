@@ -1,10 +1,16 @@
 
+import os
 import sqlite3
 from pathlib import Path
 
 # 1. Locate the existing database
 BASE_DIR = Path(__file__).resolve().parent.parent
-DB_PATH = BASE_DIR / "database" / "helpdesk.db"
+configured_path = os.environ.get("HELPDESK_DB_PATH")
+DB_PATH = (
+    Path(configured_path).expanduser().resolve()
+    if configured_path
+    else BASE_DIR / "database" / "helpdesk.db"
+)
 
 
 # 2. Connect to SQLite
