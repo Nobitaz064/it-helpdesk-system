@@ -19,5 +19,7 @@ venv/
 .env.*
 /.streamlit/secrets.toml
 
-# VS Code local settings
-.vscode/
+# VS Code | Giữ cấu hình riêng ở máy. Chia sẻ nhận diện file SQLite của Tuần 1.
+**/.vscode/*
+!/.vscode/extensions.json
+!/.vscode/settings.json
