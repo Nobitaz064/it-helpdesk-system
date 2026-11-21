@@ -1,4 +1,6 @@
+import os
 import tempfile
+import time
 import unittest
 from contextlib import closing
 from pathlib import Path
@@ -6,8 +8,8 @@ from unittest.mock import patch
 
 from streamlit.testing.v1 import AppTest
 
-from database import init_db
-from src import db
+from database import init_db, manage_users
+from src import auth, db, ticket_service
 
 
 APP = Path(__file__).resolve().parents[1] / "app.py"
@@ -17,6 +19,7 @@ ADMIN_PAGE = "pages/2_Admin_Dashboard.py"
 
 class TestTicketWorkflow(unittest.TestCase):
     def setUp(self):
+        self.enterContext(patch.dict(os.environ, {"HELPDESK_AUTH_MODE": "demo"}))
         folder = self.enterContext(tempfile.TemporaryDirectory())
         database_path = Path(folder) / "helpdesk.db"
         self.enterContext(patch.object(init_db, "DB_PATH", database_path))
@@ -95,3 +98,55 @@ class TestTicketWorkflow(unittest.TestCase):
                 ("resolved", "closed", 1, "Confirmed Wi-Fi works."),
             ],
         )
+        app.number_input(key="employee_detail").set_value(int(ticket_id)).run()
+        self.assertFalse(app.exception)
+        self.assertIn("The laptop loses Wi-Fi after each restart.", [item.value for item in app.text])
+        self.assertEqual(len(app.dataframe[1].value), 6)
+
+    def test_admin_table_paginates_and_keeps_full_totals(self):
+        for count in range(30):
+            ticket_service.create_ticket(f"Test #{count}", "Page fixture", 1, 2)
+
+        app = AppTest.from_file(str(APP)).run()
+        app.switch_page(ADMIN_PAGE).run()
+        self.assertFalse(app.exception)
+        self.assertEqual(len(app.dataframe[0].value), 25)
+        self.assertEqual(app.metric[0].value, "30")
+
+        app.button(key="admin_tickets_next").click().run()
+        self.assertFalse(app.exception)
+        self.assertEqual(len(app.dataframe[0].value), 5)
+        self.assertEqual(app.metric[0].value, "30")
+
+        app.text_input[0].set_value("Test #29").run()
+        self.assertEqual(app.dataframe[0].value["Title"].tolist(), ["Test #29"])
+
+    def test_company_dashboards_scope_ticket_rows_to_signed_in_user(self):
+        init_db.init_db(production=True)
+        issuer = "https://login.example.test/organization"
+        manage_users.link_user(1, issuer, "employee-one")
+        other_id = manage_users.create_user(
+            issuer, "employee-two", "Employee Two", "employee2@example.test", "employee"
+        )
+        first_ticket = ticket_service.create_ticket("Employee one's request", "Fixture", 1, 2)
+        second_ticket = ticket_service.create_ticket("Employee two's request", "Fixture", other_id, 2)
+        claims = {
+            "is_logged_in": True, "iss": issuer, "sub": "employee-one", "exp": time.time() + 300,
+        }
+
+        with patch.dict(os.environ, {"HELPDESK_AUTH_MODE": "oidc"}), patch.object(auth.st, "user", claims):
+            first = AppTest.from_file(str(APP)).run()
+            self.assertFalse(first.exception)
+            self.assertEqual(first.dataframe[0].value["ID"].tolist(), [first_ticket])
+            first.switch_page(ADMIN_PAGE).run()
+            self.assertFalse(first.exception)
+            self.assertIn("does not have access", first.error[0].value)
+            self.assertFalse(first.dataframe)
+
+            claims["sub"] = "employee-two"
+            second = AppTest.from_file(str(APP)).run()
+            self.assertFalse(second.exception)
+            self.assertEqual(second.dataframe[0].value["ID"].tolist(), [second_ticket])
+            second.number_input(key="employee_detail").set_value(first_ticket).run()
+            self.assertIn("Ticket unavailable.", [item.value for item in second.info])
+            self.assertEqual(len(second.dataframe), 1)

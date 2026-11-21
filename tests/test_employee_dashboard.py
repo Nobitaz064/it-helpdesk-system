@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from contextlib import closing
@@ -15,6 +16,7 @@ DASHBOARD = Path(__file__).resolve().parents[1] / "app.py"
 
 class TestEmployeeDashboard(unittest.TestCase):
     def setUp(self):
+        self.enterContext(patch.dict(os.environ, {"HELPDESK_AUTH_MODE": "demo"}))
         temp_dir = self.enterContext(tempfile.TemporaryDirectory())
         db_path = Path(temp_dir) / "helpdesk.db"
         self.enterContext(patch.object(init_db, "DB_PATH", db_path))
@@ -106,6 +108,17 @@ class TestEmployeeDashboard(unittest.TestCase):
         self.assertEqual(stale_dashboard.error[0].value, "Please select a ticket and decision.")
         self.assertEqual(ticket_service.get_ticket_by_id(1, self.first_ticket)[2], "closed")
         self.assertEqual(ticket_service.get_ticket_by_id(1, self.second_ticket)[2], "resolved")
+
+    def test_stale_review_rejects_same_status_after_reopen_and_resolve(self):
+        stale = self.open_dashboard()
+        self.set_review(stale, "Close Ticket", "Confirmation after the first fix.")
+
+        ticket_service.update_ticket_status(self.first_ticket, "in_progress", 1, "Issue persists.")
+        ticket_service.update_ticket_status(self.first_ticket, "resolved", 2, "Second fix.")
+        self.submit_review(stale)
+
+        self.assertIn("Ticket version conflict", stale.error[0].value)
+        self.assertEqual(ticket_service.get_ticket_by_id(1, self.first_ticket)[2], "resolved")
 
     def test_missing_selection_and_blank_note_preserve_resolved_status(self):
         dashboard = self.open_dashboard()

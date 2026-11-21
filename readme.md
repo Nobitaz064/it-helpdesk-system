@@ -9,11 +9,16 @@ Use Python 3.11 or later. Run the following commands from the repository folder 
 ```powershell
 py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe database/init_db.py
+$env:HELPDESK_AUTH_MODE = 'demo'
+.\.venv\Scripts\python.exe -m database.init_db
 .\.venv\Scripts\python.exe -m streamlit run app.py
 ```
 
-Open the local URL printed by Streamlit. The setup script creates `database/helpdesk.db` with demo users and ticket categories when the file is missing. Create a ticket from the dashboard to start the demo. Git ignores the local database file.
+Open the local URL printed by Streamlit. The setup script creates `database/helpdesk.db` with demo users and ticket categories on a new installation. Run it again after updating the code to apply schema migrations to an existing database. Create a ticket from the dashboard to start the demo. Git ignores the local database file.
+
+## Run an internal pilot
+
+Use a dedicated database and the default company sign-in mode. The [operations guide](docs/operations.md) covers secret configuration, OIDC account enrollment, deployment, schema updates, and backup and restore. The demo environment setting only works with a database marked for demo use.
 
 ## Try the ticket workflow
 
@@ -28,13 +33,13 @@ The pages use fixed demo identities. Use the Streamlit sidebar to navigate betwe
 | 5 | Technician (Binh) | Fix the remaining issue and mark the ticket resolved again. | Status is `resolved`. |
 | 6 | Employee (An) | Select **Close Ticket** and confirm the fix. | Status is `closed`. |
 
-The Admin dashboard also displays totals by status and offers search and filters. The Technician dashboard shows assigned tickets. Users can follow the full state transitions in the [ticket workflow](docs/ticket_workflow.md).
+The Admin dashboard also displays totals by status, search and filters, and reassignment of in-progress tickets with a reason. The Technician queue lists assigned tickets by priority, oldest first within each priority. Lists and action pickers are paginated. Enter the ticket ID under **Ticket details and shared history** to view the original description and notes you have access to. See the [ticket workflow](docs/ticket_workflow.md) for the full process.
 
 ## How the system works
 
 1. The [Employee Dashboard](app.py), [Technician Dashboard](pages/1_Technician_Dashboard.py), and [Admin Dashboard](pages/2_Admin_Dashboard.py) collect input and display the latest ticket data.
-2. The [ticket service](src/ticket_service.py) validates input, checks role and ownership rules, and applies allowed status transitions.
-3. SQLite stores the current record in `TICKETS` and logs the actor, status, and note in `TICKET_HISTORY`. A transaction commits each ticket update together with its history entry.
+2. The [authentication guard](src/auth.py) resolves a signed-in company account to a local user and checks the page's role. The [ticket service](src/ticket_service.py) applies ticket ownership rules, validates updates, and checks the version shown in the submitting form.
+3. SQLite stores the current record in `TICKETS` and logs the actor, status, and note in `TICKET_HISTORY`. A transaction commits the ticket update and its history entry together. A stale form cannot save after another session has changed the record.
 
 The [database design](docs/erd.md) describes the relationships between `USERS`, `CATEGORIES`, `TICKETS`, and `TICKET_HISTORY`. See the [requirements](docs/requirement.md) for the project scope.
 
@@ -64,7 +69,7 @@ Run the following command after installing the dependencies.
 
 The tests initialize temporary SQLite databases, so you can run them before creating the app's database. They cover input validation, role and ownership checks, transaction rollback, and stale forms. The [workflow test](tests/test_ticket_workflow.py) uses Streamlit `AppTest` to simulate the six steps above across three dashboards and check all six history entries in order.
 
-All 13 automated tests passed with Python 3.14.10 and Streamlit 1.67.0. A browser smoke test also exercised creation, assignment, resolution, reopening, and closure. Use the [manual test cases](docs/ticket_workflow.md#6-manual-test-cases) to repeat the checks and inspect the SQLite history.
+The tests cover the demo workflow, role and identity checks with simulated OIDC claims, stale updates after reopening, reassignment and history, pagination, data migrations, and backup. Use the [manual test cases](docs/ticket_workflow.md#6-manual-test-cases) to exercise the browser and inspect SQLite. Validate the real sign-in flow against your organization's identity provider during pilot setup.
 
 ## Project progress
 
@@ -73,5 +78,6 @@ All 13 automated tests passed with Python 3.14.10 and Streamlit 1.67.0. A browse
 - [x] Week 3 — Streamlit dashboards, assignment, resolution, and close or reopen.
 - [x] Week 4 — Automated workflow testing and local setup documentation.
 - [x] Week 4 — Browser usability checks, screenshots, and manual test cases.
+- [x] Internal pilot foundation — Company sign-in, version checks, ticket detail and reassignment, pagination, and database operations.
 
 Asset management and Power BI analytics are planned for future phases.

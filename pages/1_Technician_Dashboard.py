@@ -1,9 +1,17 @@
 
-import sqlite3
 import streamlit as st
 
-
-from src.ticket_service import get_tickets, update_ticket_status
+from src.auth import require_user
+from src.dashboard_ui import (
+    SERVICE_ERRORS,
+    expected_version,
+    remember_versions,
+    show_service_error,
+    show_ticket_detail,
+    show_ticket_table,
+    ticket_page,
+)
+from src.ticket_service import get_ticket_counts, update_ticket_status
 
 
 
@@ -18,19 +26,8 @@ st.set_page_config(
     layout="wide"
 )
 
-# STEP 2: Simulated technician
-TECHNICIAN_ID = 2
-
+technician_id = require_user("technician")
 st.title("Technician Dashboard")
-st.write("Welcome, Technician Binh!")
-
-st.sidebar.info(
-    "Demo Mode: Technician Binh (User ID = 2)"
-)
-
-st.caption(
-    "Demo account only. Authentication is not implemented."
-)
 
 if "resolve_success" in st.session_state:
     st.success(st.session_state.pop("resolve_success"))
@@ -76,14 +73,18 @@ try:
         else status_filter
     )
 
-    tickets = get_tickets(
-        viewer_id=TECHNICIAN_ID,
+    tickets = ticket_page(
+        "technician_tickets", technician_id,
         keyword=keyword,
-        status=selected_status
+        status=selected_status,
+        sort="priority",
+    )
+    counts = get_ticket_counts(
+        technician_id, keyword=keyword, status=selected_status
     )
 
-except (ValueError, FileNotFoundError, sqlite3.Error) as error:
-    st.error(f"Cannot load assigned tickets: {error}")
+except SERVICE_ERRORS as error:
+    show_service_error("Cannot load assigned tickets", error)
     st.stop()
 
 
@@ -91,51 +92,21 @@ except (ValueError, FileNotFoundError, sqlite3.Error) as error:
 # STEP 5: DISPLAY TICKET METRICS
 # =====================================
 
-total_tickets = len(tickets)
-
-in_progress_count = sum(
-    1 for ticket in tickets
-    if ticket[2] == "in_progress"
-)
-
 metric1, metric2 = st.columns(2)
 
 with metric1:
-    st.metric("Matching Assigned Tickets", total_tickets)
+    st.metric("Matching Assigned Tickets", sum(counts.values()))
 
 with metric2:
-    st.metric("In Progress", in_progress_count)
+    st.metric("In Progress", counts["in_progress"])
 
 
 # =====================================
 # STEP 6: DISPLAY TICKET TABLE
 # =====================================
 
-if tickets:
-
-    ticket_data = []
-
-    for ticket in tickets:
-        ticket_data.append({
-            "ID": ticket[0],
-            "Title": ticket[1],
-            "Status": ticket[2],
-            "Priority": ticket[3],
-            "Reporter": ticket[4],
-            "Category": ticket[5],
-            "Technician": ticket[6]
-        })
-
-    st.dataframe(
-        ticket_data,
-        hide_index=True,
-        width="stretch"
-    )
-
-else:
-    st.info(
-        "No assigned tickets match your search or filters."
-    )
+show_ticket_table(tickets, "No assigned tickets match your search or filters.")
+show_ticket_detail("technician", technician_id)
 
 
 # =====================================
@@ -147,13 +118,13 @@ st.header("Resolve Ticket")
 
 # STEP 1: Load tickets ready for resolution
 try:
-    active_tickets = get_tickets(
-        viewer_id=TECHNICIAN_ID,
-        status="in_progress"
+    active_tickets = ticket_page(
+        "technician_resolve", technician_id,
+        status="in_progress", sort="priority", include_version=True,
     )
 
-except (ValueError, FileNotFoundError, sqlite3.Error) as error:
-    st.error(f"Cannot load active tickets: {error}")
+except SERVICE_ERRORS as error:
+    show_service_error("Cannot load active tickets", error)
     st.stop()
 
 
@@ -195,7 +166,9 @@ else:
         )
 
     # STEP 4: Process resolution
-    if submitted:
+    if not submitted:
+        remember_versions("technician_resolve", technician_id, active_tickets)
+    else:
 
         if selected_ticket_id is None:
             st.error("Select a ticket to resolve.")
@@ -210,18 +183,15 @@ else:
                 update_ticket_status(
                     ticket_id=selected_ticket_id,
                     new_status="resolved",
-                    actor_id=TECHNICIAN_ID,
-                    note=note
+                    actor_id=technician_id,
+                    note=note,
+                    expected_version=expected_version(
+                        "technician_resolve", technician_id, selected_ticket_id
+                    ),
                 )
 
-            except (
-                ValueError,
-                PermissionError,
-                RuntimeError,
-                FileNotFoundError,
-                sqlite3.Error
-            ) as error:
-                st.error(f"Cannot resolve ticket: {error}")
+            except SERVICE_ERRORS as error:
+                show_service_error("Cannot resolve ticket", error)
 
             else:
                 st.session_state["resolve_success"] = (

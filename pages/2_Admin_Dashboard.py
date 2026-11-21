@@ -1,62 +1,50 @@
-import sqlite3
 from contextlib import closing
 
 import streamlit as st
 
+from src.auth import require_user
+from src.dashboard_ui import (
+    SERVICE_ERRORS,
+    expected_version,
+    remember_versions,
+    show_service_error,
+    show_ticket_detail,
+    show_ticket_table,
+    ticket_page,
+)
 from src.db import get_connection
-from src.ticket_service import assign_ticket, get_tickets
+from src.ticket_service import assign_ticket, get_ticket_counts, reassign_ticket
 
-
-ADMIN_ID = 3
 
 st.set_page_config(page_title="Admin Dashboard", page_icon="📋", layout="wide")
+admin_id = require_user("admin")
 st.title("Admin Dashboard")
-st.sidebar.info("Demo Mode: Admin Chi (User ID = 3)")
-st.caption("This dashboard uses a demo account without login authentication.")
 
-if "assignment_success" in st.session_state:
-    st.success(st.session_state.pop("assignment_success"))
-    st.session_state["assignment_ticket"] = None
-    st.session_state["assignment_technician"] = None
-    st.session_state["assignment_note"] = ""
+for scope in ("assignment", "reassignment"):
+    message = st.session_state.pop(f"{scope}_success", None)
+    if message:
+        st.success(message)
+        st.session_state[f"{scope}_ticket"] = None
+        st.session_state[f"{scope}_technician"] = None
+        st.session_state[f"{scope}_note"] = ""
 
-
-# =====================================
-# LESSON 3.4.3: DASHBOARD METRICS
-# =====================================
 
 st.subheader("Ticket Overview")
 
-# STEP 1: Load all tickets
 try:
-    all_tickets = get_tickets(viewer_id=ADMIN_ID)
-
-except (ValueError, FileNotFoundError, sqlite3.Error) as error:
-    st.error(f"Cannot load dashboard metrics: {error}")
+    counts = get_ticket_counts(admin_id)
+except SERVICE_ERRORS as error:
+    show_service_error("Cannot load dashboard metrics", error)
     st.stop()
 
-# STEP 2: Count tickets by status
-total_count = len(all_tickets)
-
-statuses = [ticket[2] for ticket in all_tickets]
-
-open_count = statuses.count("open")
-in_progress_count = statuses.count("in_progress")
-resolved_count = statuses.count("resolved")
-closed_count = statuses.count("closed")
-
-# STEP 3: Display dashboard metrics
-col1, col2, col3, col4, col5 = st.columns(5)
-
-col1.metric("Total", total_count)
-col2.metric("Open", open_count)
-col3.metric("In Progress", in_progress_count)
-col4.metric("Resolved", resolved_count)
-col5.metric("Closed", closed_count)
+total, open_column, in_progress, resolved, closed = st.columns(5)
+total.metric("Total", sum(counts.values()))
+open_column.metric("Open", counts["open"])
+in_progress.metric("In Progress", counts["in_progress"])
+resolved.metric("Resolved", counts["resolved"])
+closed.metric("Closed", counts["closed"])
 
 st.divider()
-
-
 st.header("All Tickets")
 search_column, status_column, priority_column = st.columns(3)
 
@@ -74,100 +62,108 @@ with priority_column:
     )
 
 try:
-    tickets = get_tickets(
-        viewer_id=ADMIN_ID,
-        keyword=keyword,
+    tickets = ticket_page(
+        "admin_tickets", admin_id, keyword=keyword,
         status=None if status == "All" else status,
         priority=None if priority == "All" else priority,
     )
-except (ValueError, FileNotFoundError, sqlite3.Error) as error:
-    st.error(f"Cannot load tickets: {error}")
+except SERVICE_ERRORS as error:
+    show_service_error("Cannot load tickets", error)
     st.stop()
 
-if tickets:
-    st.dataframe(
-        [
-            {
-                "ID": ticket_id,
-                "Title": title,
-                "Status": ticket_status,
-                "Priority": ticket_priority,
-                "Reporter": reporter,
-                "Category": category,
-                "Technician": technician or "Unassigned",
-            }
-            for ticket_id, title, ticket_status, ticket_priority, reporter, category, technician in tickets
-        ],
-        hide_index=True,
-        width="stretch",
-    )
-else:
-    st.info("No tickets match your search or filters.")
-
-st.divider()
-st.header("Assign Ticket")
+show_ticket_table(tickets, "No tickets match your search or filters.")
+show_ticket_detail("admin", admin_id)
 
 try:
-    open_tickets = get_tickets(viewer_id=ADMIN_ID, status="open")
     with closing(get_connection()) as conn:
         technicians = dict(conn.execute(
             """
-            SELECT USER_ID, FULL_NAME
-            FROM USERS
-            WHERE ROLE = ?
-            ORDER BY FULL_NAME, USER_ID
-            """,
-            ("technician",),
+            SELECT U.USER_ID, U.FULL_NAME
+            FROM USERS AS U
+            WHERE U.ROLE = 'technician'
+                AND (
+                    EXISTS (SELECT 1 FROM HELPDESK_SETTINGS
+                            WHERE KEY = 'auth_mode' AND VALUE = 'demo')
+                    OR EXISTS (SELECT 1 FROM USER_IDENTITIES WHERE USER_ID = U.USER_ID)
+                )
+            ORDER BY U.FULL_NAME, U.USER_ID
+            """
         ))
-except (ValueError, FileNotFoundError, sqlite3.Error) as error:
-    st.error(f"Cannot load assignment options: {error}")
+except SERVICE_ERRORS as error:
+    show_service_error("Cannot load technicians", error)
     st.stop()
 
-ticket_titles = {
-    ticket[0]: ticket[1] for ticket in open_tickets if ticket[6] is None
-}
 
-if not ticket_titles:
-    st.info("No unassigned open tickets.")
-    st.stop()
+def show_assignment_form(scope, *, reassign):
+    action_name = "Reassign Ticket" if reassign else "Assign Ticket"
+    st.divider()
+    st.header("Reassign In-Progress Ticket" if reassign else action_name)
 
-if not technicians:
-    st.info("No technicians are available.")
-    st.stop()
+    if not technicians:
+        st.info("No technicians are available.")
+        return
+    try:
+        candidates = ticket_page(
+            scope, admin_id, status="in_progress" if reassign else "open",
+            sort="priority", include_version=True,
+        )
+    except SERVICE_ERRORS as error:
+        show_service_error("Cannot load assignment options", error)
+        return
 
-with st.form("assign_ticket_form"):
-    ticket_id = st.selectbox(
-        "Select Ticket",
-        options=list(ticket_titles),
-        index=None,
-        format_func=lambda ticket_id: f"#{ticket_id} - {ticket_titles[ticket_id]}",
-        key="assignment_ticket",
-    )
-    technician_id = st.selectbox(
-        "Select Technician",
-        options=list(technicians),
-        index=None,
-        format_func=lambda technician_id: f"{technicians[technician_id]} (#{technician_id})",
-        key="assignment_technician",
-    )
-    note = st.text_area("Assignment Note (optional)", max_chars=500, key="assignment_note")
-    submitted = st.form_submit_button("Assign Ticket")
+    candidates = [row for row in candidates if (row[6] is not None) == reassign]
+    if not candidates:
+        message = "No assigned tickets are in progress." if reassign else "No unassigned open tickets."
+        st.info(message)
+        return
+    titles = {row[0]: row[1] for row in candidates}
+    with st.form(f"{scope}_form"):
+        ticket_id = st.selectbox(
+            "Select Active Ticket" if reassign else "Select Ticket",
+            options=list(titles),
+            index=None,
+            format_func=lambda value: f"#{value} - {titles[value]}",
+            key=f"{scope}_ticket",
+        )
+        technician_id = st.selectbox(
+            "Select New Technician" if reassign else "Select Technician",
+            options=list(technicians),
+            index=None,
+            format_func=lambda value: f"{technicians[value]} (#{value})",
+            key=f"{scope}_technician",
+        )
+        note = st.text_area(
+            "Reason for Reassignment" if reassign else "Assignment Note (optional)",
+            max_chars=500,
+            key=f"{scope}_note",
+        )
+        submitted = st.form_submit_button(action_name)
 
-if submitted:
+    if not submitted:
+        remember_versions(scope, admin_id, candidates)
+        return
     if ticket_id is None or technician_id is None:
         st.error("Select both a ticket and a technician.")
+        return
+
+    operation = reassign_ticket if reassign else assign_ticket
+    if not reassign:
+        note = note.strip() or "Assigned to technician"
+    try:
+        operation(
+            ticket_id=ticket_id,
+            technician_id=technician_id,
+            admin_id=admin_id,
+            note=note,
+            expected_version=expected_version(scope, admin_id, ticket_id),
+        )
+    except SERVICE_ERRORS as error:
+        show_service_error(f"Cannot {action_name.lower()}", error)
     else:
-        try:
-            assign_ticket(
-                ticket_id=ticket_id,
-                technician_id=technician_id,
-                admin_id=ADMIN_ID,
-                note=note.strip() or "Assigned to technician",
-            )
-        except (ValueError, PermissionError, RuntimeError, FileNotFoundError, sqlite3.Error) as error:
-            st.error(f"Cannot assign ticket: {error}")
-        else:
-            st.session_state["assignment_success"] = (
-                f"Ticket #{ticket_id} assigned to {technicians[technician_id]}."
-            )
-            st.rerun()
+        verb = "reassigned" if reassign else "assigned"
+        st.session_state[f"{scope}_success"] = f"Ticket #{ticket_id} {verb} to {technicians[technician_id]}."
+        st.rerun()
+
+
+show_assignment_form("assignment", reassign=False)
+show_assignment_form("reassignment", reassign=True)

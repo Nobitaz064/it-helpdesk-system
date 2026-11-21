@@ -1,14 +1,22 @@
 
-import sqlite3
 from contextlib import closing
 
 import streamlit as st
 
+from src.auth import require_user
+from src.dashboard_ui import (
+    SERVICE_ERRORS,
+    expected_version,
+    remember_versions,
+    show_service_error,
+    show_ticket_detail,
+    show_ticket_table,
+    ticket_page,
+)
 from src.db import get_connection
 
 from src.ticket_service import (
     create_ticket,
-    get_tickets,
     update_ticket_status
 )
 
@@ -24,6 +32,8 @@ st.set_page_config(
     page_icon="🛠️",
     layout="wide"
 )
+
+employee_id = require_user("employee", landing=True)
 
 
 # Display ticket creation result after the form version has changed.
@@ -45,20 +55,8 @@ if review_message:
     st.session_state["employee_review_note"] = ""
 
 
-# STEP 2: Simulated employee
-EMPLOYEE_ID = 1
-
 st.title("IT Helpdesk Ticket Management System")
 st.subheader("Employee Dashboard")
-
-st.sidebar.info(
-    "Demo Mode: Employee An (User ID = 1)"
-)
-
-st.caption(
-    "This dashboard uses a sample employee account. "
-    "Login authentication is not implemented yet."
-)
 
 
 # =====================================
@@ -73,8 +71,8 @@ try:
             ORDER BY CATEGORY_ID
         """).fetchall()
 
-except (FileNotFoundError, sqlite3.Error) as error:
-    st.error(f"Cannot load categories: {error}")
+except SERVICE_ERRORS as error:
+    show_service_error("Cannot load categories", error)
     st.stop()
 
 categories = {
@@ -134,13 +132,13 @@ if submitted:
         ticket_id = create_ticket(
             title=title,
             description=description,
-            reporter_id=EMPLOYEE_ID,
+            reporter_id=employee_id,
             category_id=category_id,
             priority=priority
         )
 
-    except (ValueError, FileNotFoundError, sqlite3.Error) as error:
-        st.error(f"Cannot create ticket: {error}")
+    except SERVICE_ERRORS as error:
+        show_service_error("Cannot create ticket", error)
 
     else:
         st.session_state["employee_create_success"] = (
@@ -159,34 +157,12 @@ st.divider()
 st.header("My Tickets")
 
 try:
-    tickets = get_tickets(EMPLOYEE_ID)
+    tickets = ticket_page("employee_tickets", employee_id)
+    show_ticket_table(tickets, "You have not created any tickets yet.")
+except SERVICE_ERRORS as error:
+    show_service_error("Cannot load tickets", error)
 
-    if tickets:
-
-        ticket_data = []
-
-        for ticket in tickets:
-            ticket_data.append({
-                "ID": ticket[0],
-                "Title": ticket[1],
-                "Status": ticket[2],
-                "Priority": ticket[3],
-                "Reporter": ticket[4],
-                "Category": ticket[5],
-                "Technician": ticket[6] or "Unassigned"
-            })
-
-        st.dataframe(
-            ticket_data,
-            hide_index=True,
-            width="stretch"
-        )
-
-    else:
-        st.info("You have not created any tickets yet.")
-
-except (ValueError, FileNotFoundError, sqlite3.Error) as error:
-    st.error(f"Cannot load tickets: {error}")
+show_ticket_detail("employee", employee_id)
 
 
 # =====================================
@@ -198,13 +174,12 @@ st.header("Review Resolved Tickets")
 
 # STEP 1: Load resolved tickets belonging to Employee
 try:
-    resolved_tickets = get_tickets(
-        viewer_id=EMPLOYEE_ID,
-        status="resolved"
+    resolved_tickets = ticket_page(
+        "employee_review", employee_id, status="resolved", include_version=True
     )
 
-except (ValueError, FileNotFoundError, sqlite3.Error) as error:
-    st.error(f"Cannot load resolved tickets: {error}")
+except SERVICE_ERRORS as error:
+    show_service_error("Cannot load resolved tickets", error)
     st.stop()
 
 
@@ -254,7 +229,9 @@ else:
         )
 
     # STEP 4: Validate and process decision
-    if submitted:
+    if not submitted:
+        remember_versions("employee_review", employee_id, resolved_tickets)
+    else:
 
         if selected_ticket_id is None or action is None:
             st.error("Please select a ticket and decision.")
@@ -273,18 +250,13 @@ else:
                 update_ticket_status(
                     ticket_id=selected_ticket_id,
                     new_status=new_status,
-                    actor_id=EMPLOYEE_ID,
-                    note=note
+                    actor_id=employee_id,
+                    note=note,
+                    expected_version=expected_version("employee_review", employee_id, selected_ticket_id),
                 )
 
-            except (
-                ValueError,
-                PermissionError,
-                RuntimeError,
-                FileNotFoundError,
-                sqlite3.Error
-            ) as error:
-                st.error(f"Cannot update ticket: {error}")
+            except SERVICE_ERRORS as error:
+                show_service_error("Cannot update ticket", error)
 
             else:
                 st.session_state["employee_review_success"] = (

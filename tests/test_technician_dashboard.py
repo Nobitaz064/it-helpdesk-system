@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -14,6 +15,7 @@ DASHBOARD = Path(__file__).resolve().parents[1] / "pages" / "1_Technician_Dashbo
 
 class TestTechnicianDashboard(unittest.TestCase):
     def setUp(self):
+        self.enterContext(patch.dict(os.environ, {"HELPDESK_AUTH_MODE": "demo"}))
         temp_dir = self.enterContext(tempfile.TemporaryDirectory())
         db_path = Path(temp_dir) / "helpdesk.db"
         self.enterContext(patch.object(init_db, "DB_PATH", db_path))

@@ -70,3 +70,16 @@ ORDER BY HISTORY_ID;
 For the full workflow, expect `NULL → open` by An (1), `open → in_progress` by Chi (3), `in_progress → resolved` by Binh (2), `resolved → in_progress` by An (1), another `in_progress → resolved` by Binh (2), and `resolved → closed` by An (1). Each resolution and employee review row should contain the note used at that step.
 
 The [automated workflow test](../tests/test_ticket_workflow.py) uses Streamlit AppTest and a temporary SQLite database for the full lifecycle and history. The [employee](../tests/test_employee_dashboard.py), [technician](../tests/test_technician_dashboard.py), and [service](../tests/test_ticket_service.py) tests cover focused cases such as stale form submissions, input validation, access rules, and rollback. Use the manual cases above to verify browser behavior and dashboard filters.
+
+## 7. Internal Pilot Test Cases
+
+Use disposable data. In company mode, enroll test accounts with your organization's identity provider according to the [operations guide](operations.md). Keep notes entered in the current forms suitable for everyone who can view the ticket. They appear in its shared history.
+
+| Case | What to do | Expected result |
+| --- | --- | --- |
+| Sign-in and role access | Open an Admin page while signed out, then sign in as an enrolled Employee. Try the Admin page again. | Signed-out visitors are asked to sign in. The Employee cannot open the Admin dashboard. |
+| Employee ownership | Sign in as two different Employees. Create a ticket as the first. Use the second account to look for it in **My Tickets** and **Ticket details and shared history**. | Only the first account can see the ticket. The history actor identifies the enrolled account. |
+| Stale version after reopening | Leave a Close form open in one tab. Reopen the same ticket in another session and have the technician resolve it again. Submit Close from the first tab. | The stale form reports a version conflict. The ticket remains `resolved` after the second fix. A fresh form can close it. |
+| Reassignment | Enroll two Technicians. Assign an open ticket to the first one. In **Reassign In-Progress Ticket**, pick the second and provide a reason. | The ticket stays `in_progress`. The old technician loses access, the new one gains it, and history shows the old and new technician and the reason. |
+| Pagination and priority | Create more than 25 tickets, including two high-priority tickets created at different times. Navigate to the next page and change a filter. Review the Technician queue. | Tables display up to 25 rows per page, totals cover all matching rows, filters restart pagination, and older tickets appear first within the same priority. |
+| Migration and restore | Run the migration on a copy of an older database. Create an online backup and point a test instance at a separate restored copy. | Existing tickets and history are present, the updated app can use them, and the source database remains available. |

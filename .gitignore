@@ -16,6 +16,7 @@ venv/
 # Sensitive configuration
 .env
 .env.*
+/.streamlit/secrets.toml
 
 # VS Code local settings
 .vscode/
