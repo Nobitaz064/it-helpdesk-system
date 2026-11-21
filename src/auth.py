@@ -131,6 +131,7 @@ def require_user(role: str, *, landing: bool = False) -> int:
     identity = _authenticated_identity() if mode == "oidc" else None
     try:
         with closing(get_connection()) as conn:
+            # Company pilot: demo IDs work only when the database is also in demo mode.
             if database_auth_mode(conn) != mode:
                 _deny("Helpdesk is configured for a different database sign-in mode.")
             if mode == "demo":
@@ -139,6 +140,7 @@ def require_user(role: str, *, landing: bool = False) -> int:
                     (DEMO_USERS[role], role),
                 ).fetchone()
             else:
+                # OIDC supplies the identity. Read the current enrollment and role from SQLite.
                 account = conn.execute(
                     """
                     SELECT U.USER_ID, U.FULL_NAME, U.ROLE

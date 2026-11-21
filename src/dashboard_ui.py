@@ -28,6 +28,7 @@ def ticket_page(scope, viewer_id, **filters):
     criteria = (viewer_id, tuple(filters.items()))
     previous_criteria, previous_offset = st.session_state.get(key, (None, 0))
     offset = previous_offset if previous_criteria == criteria else 0
+    # Company pilot: one extra row tells us whether to enable Next.
     rows = get_tickets(viewer_id, limit=PAGE_SIZE + 1, offset=offset, **filters)
     if not rows and offset:
         offset = 0
@@ -76,6 +77,7 @@ def show_ticket_table(rows, empty_message):
 
 
 def expected_version(scope, viewer_id, ticket_id):
+    # Use the version saved when this user saw the form.
     owner, versions = st.session_state.get(f"{scope}_versions", (None, {}))
     version = versions.get(ticket_id) if owner == viewer_id else None
     if version is None:

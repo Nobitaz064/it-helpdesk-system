@@ -16,6 +16,7 @@ from src.db import get_connection
 from src.ticket_service import assign_ticket, get_ticket_counts, reassign_ticket
 
 
+# Lesson 3.4: view the queue and assign technicians.
 st.set_page_config(page_title="Admin Dashboard", page_icon="📋", layout="wide")
 admin_id = require_user("admin")
 st.title("Admin Dashboard")
@@ -146,6 +147,7 @@ def show_assignment_form(scope, *, reassign):
         st.error("Select both a ticket and a technician.")
         return
 
+    # Company pilot: the active-ticket form reuses the UI and invokes the handoff rule.
     operation = reassign_ticket if reassign else assign_ticket
     if not reassign:
         note = note.strip() or "Assigned to technician"

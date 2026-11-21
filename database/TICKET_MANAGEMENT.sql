@@ -1,6 +1,8 @@
 -- ====================================
 -- IT HELPDESK TICKET MANAGEMENT
 -- ====================================
+-- Week 1: baseline schema and SQL practice. The initializer reads up to Part 2.
+-- Company-pilot schema upgrades live in database/migrations.py.
 
 PRAGMA foreign_keys = ON;
 

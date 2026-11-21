@@ -5,6 +5,7 @@ from pathlib import Path
 
 # 1. Locate the existing database
 BASE_DIR = Path(__file__).resolve().parent.parent
+# Company pilot: select separate storage for demo, pilot, and restore environments.
 configured_path = os.environ.get("HELPDESK_DB_PATH")
 DB_PATH = (
     Path(configured_path).expanduser().resolve()
@@ -13,7 +14,7 @@ DB_PATH = (
 )
 
 
-# 2. Connect to SQLite
+# Week 2: every connection enables SQLite's checks for related records.
 def get_connection():
     if not DB_PATH.is_file():
         raise FileNotFoundError(

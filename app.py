@@ -33,6 +33,7 @@ st.set_page_config(
     layout="wide"
 )
 
+# Company pilot: resolve the user before loading Employee data or accepting a form.
 employee_id = require_user("employee", landing=True)
 
 
@@ -91,6 +92,7 @@ if not categories:
 
 st.header("Create New Ticket")
 
+# Week 4: keep the same form after validation errors to preserve the user's draft.
 create_form_version = st.session_state.get("employee_create_form_version", 0)
 with st.form(f"create_ticket_form_{create_form_version}"):
 
@@ -230,6 +232,7 @@ else:
 
     # STEP 4: Validate and process decision
     if not submitted:
+        # Company pilot: store what the form displayed for the next submission.
         remember_versions("employee_review", employee_id, resolved_tickets)
     else:
 

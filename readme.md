@@ -71,6 +71,18 @@ The tests initialize temporary SQLite databases, so you can run them before crea
 
 The tests cover the demo workflow, role and identity checks with simulated OIDC claims, stale updates after reopening, reassignment and history, pagination, data migrations, and backup. Use the [manual test cases](docs/ticket_workflow.md#6-manual-test-cases) to exercise the browser and inspect SQLite. Validate the real sign-in flow against your organization's identity provider during pilot setup.
 
+## Code map by week
+
+| Milestone | Where to read | What to follow |
+| --- | --- | --- |
+| Week 1 — SQLite design | [Base schema](database/TICKET_MANAGEMENT.sql), [database setup](database/init_db.py), [ERD](docs/erd.md) | Foreign keys, table creation, and the status history model. |
+| Week 2 — Python service | [Connection](src/db.py), [ticket service](src/ticket_service.py), [service tests](tests/test_ticket_service.py) | Input checks, role-scoped queries, and transactions that write a ticket and its history together. |
+| Week 3 — Dashboards | [Employee, lessons 3.2 and 3.5](app.py), [Technician, lesson 3.3](pages/1_Technician_Dashboard.py), [Admin, lesson 3.4](pages/2_Admin_Dashboard.py) | How Streamlit forms call the service to create, assign, resolve, reopen, and close tickets. |
+| Week 4 — Testing and polish | [Workflow test](tests/test_ticket_workflow.py), [manual test cases](docs/ticket_workflow.md#6-manual-test-cases) | How isolated test data, browser checks, and form reset verification cover the complete workflow. |
+| After Week 4 — Company pilot | [Authentication](src/auth.py), [ticket service](src/ticket_service.py), [shared UI](src/dashboard_ui.py), [migrations](database/migrations.py), [operations guide](docs/operations.md) | Company sign-in, version checks, ticket detail and handoff, pagination, and database upgrades and backups. |
+
+Some files contain both the original lesson and the later pilot changes. The comments mark the decisions to follow when reading or debugging.
+
 ## Project progress
 
 - [x] Week 1 — Requirements, database design, and SQLite schema.

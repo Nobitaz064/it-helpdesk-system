@@ -13,11 +13,13 @@ def _validate_version(expected_version):
 
 
 def _check_version(expected_version, current_version):
+    # Company pilot: a ticket can return to the same status at a newer version.
     if expected_version is not None and expected_version != current_version:
         raise RuntimeError("Ticket version conflict. Refresh and try again.")
 
 
 def _ticket_scope(conn, viewer_id):
+    # Week 2: share one visibility rule across list, count, and detail queries.
     viewer = conn.execute(
         "SELECT ROLE FROM USERS WHERE USER_ID = ?", (viewer_id,)
     ).fetchone()
@@ -33,6 +35,7 @@ def _ticket_scope(conn, viewer_id):
     raise ValueError("Invalid user role")
 
 
+# Week 2: validate the request before creating the ticket and its first audit row.
 def create_ticket(title, description, reporter_id,
                   category_id, priority="medium"):
 
@@ -64,7 +67,7 @@ def create_ticket(title, description, reporter_id,
     conn = get_connection()
 
     try:
-        # STEP 3: Begin database transaction
+        # The new ticket and its history entry commit or roll back together.
         with conn:
 
             # Check reporter
@@ -244,6 +247,7 @@ def get_tickets(
 
 
 def get_ticket_counts(viewer_id, *, keyword=None, status=None):
+    # Company pilot: count all matching rows in SQL independently of page size.
     if type(viewer_id) is not int or viewer_id <= 0:
         raise ValueError("Invalid viewer ID")
     filters, filter_params = _search_filters(keyword, status)
@@ -289,6 +293,7 @@ def get_ticket_by_id(viewer_id, ticket_id):
         conn.close()
 
 
+# Company pilot: load the original report and ordered history after checking visibility.
 def get_ticket_detail(viewer_id, ticket_id):
     if type(viewer_id) is not int or viewer_id <= 0:
         raise ValueError("Invalid viewer ID")
@@ -422,6 +427,7 @@ def assign_ticket(ticket_id, technician_id, admin_id,
         conn.close()
 
 
+# Company pilot: record both technicians while the ticket remains in progress.
 def reassign_ticket(ticket_id, technician_id, admin_id, note, *, expected_version):
     for value in (ticket_id, technician_id, admin_id):
         if type(value) is not int or value <= 0:
@@ -564,7 +570,7 @@ def update_ticket_status(ticket_id, new_status,
 
             _check_version(expected_version, version)
 
-            # STEP 7: Update current status
+            # Company pilot: SQL checks the version again at the moment it writes.
             cursor = conn.execute("""
                 UPDATE TICKETS
                 SET
@@ -586,7 +592,7 @@ def update_ticket_status(ticket_id, new_status,
                     "Ticket status update conflict"
                 )
 
-            # STEP 8: Record ticket history
+            # Week 2: keep the audit write in this transaction with the status update.
             conn.execute("""
                 INSERT INTO TICKET_HISTORY
                 (

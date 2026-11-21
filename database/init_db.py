@@ -33,6 +33,7 @@ DEFAULT_CATEGORIES = (
 
 
 def create_base_schema(connection: sqlite3.Connection) -> None:
+    # Week 1: use the schema section only. Later sections are SQL exercises.
     schema, marker, _ = SQL_PATH.read_text(encoding="utf-8").partition(SCHEMA_END)
     if not marker:
         raise RuntimeError("Schema section marker not found")
@@ -73,6 +74,7 @@ def init_db(*, production: bool = False) -> None:
         elif not BASE_TABLES.issubset(existing_tables):
             raise RuntimeError("Existing database is missing one or more Helpdesk tables.")
 
+        # Company pilot: upgrade existing data and set its sign-in mode together.
         apply_migrations(connection)
         connection.execute(
             "INSERT OR IGNORE INTO HELPDESK_SETTINGS (KEY, VALUE) VALUES ('auth_mode', ?)",

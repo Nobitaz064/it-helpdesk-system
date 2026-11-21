@@ -8,6 +8,7 @@ SCHEMA_VERSION = 1
 
 def apply_migrations(connection: sqlite3.Connection) -> None:
     """Upgrade the schema within the caller's transaction."""
+    # Company pilot: the stored version lets initialization skip completed upgrades.
     version = connection.execute("PRAGMA user_version").fetchone()[0]
     if version > SCHEMA_VERSION:
         raise RuntimeError(

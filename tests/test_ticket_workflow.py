@@ -19,6 +19,7 @@ ADMIN_PAGE = "pages/2_Admin_Dashboard.py"
 
 class TestTicketWorkflow(unittest.TestCase):
     def setUp(self):
+        # Week 4: each AppTest run starts with an isolated SQLite database.
         self.enterContext(patch.dict(os.environ, {"HELPDESK_AUTH_MODE": "demo"}))
         folder = self.enterContext(tempfile.TemporaryDirectory())
         database_path = Path(folder) / "helpdesk.db"
@@ -47,6 +48,7 @@ class TestTicketWorkflow(unittest.TestCase):
         self.submit_form(app, "Submit Decision")
 
     def test_create_assign_resolve_reopen_and_close(self):
+        # Week 4: exercise actual dashboard actions, then verify their SQLite history.
         app = AppTest.from_file(str(APP)).run()
         self.assertFalse(app.exception)
         title = "Wi-Fi disconnects after restart"

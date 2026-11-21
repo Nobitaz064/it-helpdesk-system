@@ -26,6 +26,7 @@ st.set_page_config(
     layout="wide"
 )
 
+# Company pilot: check the role before querying the technician's assigned tickets.
 technician_id = require_user("technician")
 st.title("Technician Dashboard")
 
