@@ -1,3 +1,4 @@
+# Tuần 1 | Giữ DB cục bộ và dữ liệu mẫu tự sinh ngoài Git.
 
 # SQLite database
 *.db
@@ -5,15 +6,15 @@
 *.db-wal
 *.db-shm
 
-# Python cache
+# Tuần 2 | Cache Python được tạo lại khi chạy chương trình.
 __pycache__/
 *.pyc
 
-# Virtual environment
+# Tuần 3 | Mỗi máy dựng venv riêng từ requirements.txt.
 .venv/
 venv/
 
-# Sensitive configuration
+# Sau Tuần 4 | Cấu hình đăng nhập và giá trị bí mật chỉ lưu cục bộ.
 .env
 .env.*
 /.streamlit/secrets.toml

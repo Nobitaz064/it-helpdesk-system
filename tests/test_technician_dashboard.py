@@ -1,3 +1,6 @@
+# Tuần 3 | Kiểm thử form Technician Resolve từ Bài 3.3.2 bằng AppTest.
+# Tuần 4 | Thêm kiểm thử giới hạn từ khóa trên UI.
+
 import os
 import tempfile
 import unittest
@@ -14,6 +17,7 @@ DASHBOARD = Path(__file__).resolve().parents[1] / "pages" / "1_Technician_Dashbo
 
 
 class TestTechnicianDashboard(unittest.TestCase):
+    # Hai ticket in_progress giúp phát hiện trường hợp form rỗng tự nhảy sang ticket khác.
     def setUp(self):
         self.enterContext(patch.dict(os.environ, {"HELPDESK_AUTH_MODE": "demo"}))
         temp_dir = self.enterContext(tempfile.TemporaryDirectory())
@@ -45,6 +49,7 @@ class TestTechnicianDashboard(unittest.TestCase):
             f"Ticket #{self.first_ticket} resolved successfully!",
         )
 
+    # Sau khi xử lý một ticket, ticket còn lại vẫn có thể chọn nhưng form phải trống.
     def test_success_clears_ticket_and_note(self):
         dashboard = self.open_dashboard()
         self.resolve_first_ticket(dashboard)
@@ -52,11 +57,13 @@ class TestTechnicianDashboard(unittest.TestCase):
         self.assertIsNone(dashboard.selectbox(key="resolve_ticket").value)
         self.assertEqual(dashboard.text_area(key="resolve_note").value, "")
 
+    # Tuần 4 | Kiểm tra trực tiếp cấu hình widget khớp giới hạn 100 của service.
     def test_search_input_limits_keywords_to_100_characters(self):
         dashboard = self.open_dashboard()
         search = next(widget for widget in dashboard.text_input if widget.label == "Search Tickets")
         self.assertEqual(search.proto.max_chars, 100)
 
+    # Hai AppTest mô phỏng hai phiên. Phiên cũ không được sửa ticket thứ hai.
     def test_stale_selection_does_not_resolve_another_ticket(self):
         stale_dashboard = self.open_dashboard()
         stale_dashboard.selectbox(key="resolve_ticket").set_value(self.first_ticket)

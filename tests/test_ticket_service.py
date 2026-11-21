@@ -1,3 +1,4 @@
+# Tuần 2 | Kiểm thử service trực tiếp để tìm lỗi nghiệp vụ, quyền và giao dịch.
 
 import sqlite3
 import tempfile
@@ -12,6 +13,7 @@ from src import db, ticket_service as service
 
 class TestTicketService(unittest.TestCase):
 
+    # Patch cả nơi khởi tạo và nơi kết nối để mọi lệnh chạy trên DB tạm riêng của test.
     def setUp(self):
         temp_dir = self.enterContext(tempfile.TemporaryDirectory())
         db_path = Path(temp_dir) / "helpdesk_test.db"
@@ -119,6 +121,7 @@ class TestTicketService(unittest.TestCase):
             """, (ticket_id,)).fetchone()[0]
 
             self.assertEqual(status, "closed")
+            # Tạo, giao, resolve, mở lại, resolve lần nữa và đóng phải có đủ sáu sự kiện.
             self.assertEqual(count, 6)
 
         finally:
@@ -137,7 +140,7 @@ class TestTicketService(unittest.TestCase):
                 "SELECT COUNT(*) FROM TICKETS"
             ).fetchone()[0]
 
-            # Simulate history insertion failure
+            # Trigger chỉ có trong DB test, buộc INSERT lịch sử lỗi để kiểm tra rollback.
             conn.executescript("""
                 CREATE TRIGGER fail_test_history
                 BEFORE INSERT ON TICKET_HISTORY
@@ -152,7 +155,7 @@ class TestTicketService(unittest.TestCase):
         finally:
             conn.close()
 
-        # Creation must fail and rollback
+        # Kiểm tra cả exception lẫn số ticket bên dưới để phát hiện bản ghi bị lưu một phần.
         with self.assertRaises(sqlite3.IntegrityError):
             service.create_ticket(
                 "TEST - Rollback",

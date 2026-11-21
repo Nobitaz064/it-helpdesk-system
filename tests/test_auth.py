@@ -1,3 +1,5 @@
+# Sau Tuần 4 | Kiểm thử ánh xạ danh tính OIDC, phân quyền và đăng ký tài khoản.
+
 """Verify authorization and local identity enrollment without an OIDC provider."""
 
 import os
@@ -35,6 +37,7 @@ class TestAuthentication(unittest.TestCase):
         self.admin_id = manage_users.create_user(
             ISSUER, "admin-sub", "Support Admin", "admin@example.test", "admin"
         )
+        # Giả lập Streamlit để kiểm tra claims và việc dừng dashboard mà không gọi IdP thật.
         self.streamlit = Mock()
         self.streamlit.sidebar.button.return_value = False
         self.streamlit.button.return_value = False
@@ -52,6 +55,7 @@ class TestAuthentication(unittest.TestCase):
             **claims,
         }
 
+    # Dù claims có email và role Admin, quyền vẫn lấy từ danh tính đã đăng ký ở SQLite.
     def test_default_company_mode_uses_enrolled_identity_and_local_role(self):
         self.set_claims(
             "employee-sub",
@@ -103,6 +107,7 @@ class TestAuthentication(unittest.TestCase):
             auth.require_user("technician")
         self.streamlit.switch_page.assert_not_called()
 
+    # Bỏ lần lượt từng claim để biết chính xác điều kiện nào đang thiếu kiểm tra.
     def test_missing_issuer_subject_or_expiry_stops_the_dashboard(self):
         for claim in ("iss", "sub", "exp"):
             with self.subTest(claim=claim):
@@ -156,6 +161,7 @@ class TestAuthentication(unittest.TestCase):
         self.assertEqual(auth.require_user("technician"), 2)
         self.assertEqual(auth.require_user("admin"), 3)
 
+    # Trùng danh tính: user vừa INSERT cũng phải bị rollback cùng liên kết.
     def test_duplicate_enrollment_rolls_back_new_local_user(self):
         with self.assertRaisesRegex(ValueError, "already enrolled"):
             manage_users.create_user(
@@ -168,6 +174,7 @@ class TestAuthentication(unittest.TestCase):
             ).fetchone()
         self.assertIsNone(exists)
 
+    # Thu hồi quyền đăng nhập và kiểm tra bản ghi USERS vẫn dùng được cho lịch sử.
     def test_link_and_unlink_existing_user_preserve_the_user_record(self):
         with closing(db.get_connection()) as conn, conn:
             user_id = conn.execute(

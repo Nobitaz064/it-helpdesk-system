@@ -1,3 +1,7 @@
+# Tuần 3 | Kiểm thử Employee Close/Reopen theo Bài 3.5 bằng Streamlit AppTest.
+# Tuần 4 | Thêm ca kiểm thử giữ bản nháp và reset sau khi gửi thành công.
+# Sau Tuần 4 | Kiểm tra form cũ sau khi ticket trải qua thêm một vòng xử lý.
+
 import os
 import tempfile
 import unittest
@@ -15,6 +19,7 @@ DASHBOARD = Path(__file__).resolve().parents[1] / "app.py"
 
 
 class TestEmployeeDashboard(unittest.TestCase):
+    # DB tạm tách test khỏi dữ liệu demo. Hai ticket giúp phát hiện chọn nhầm khi form cũ.
     def setUp(self):
         self.enterContext(patch.dict(os.environ, {"HELPDESK_AUTH_MODE": "demo"}))
         temp_dir = self.enterContext(tempfile.TemporaryDirectory())
@@ -47,6 +52,7 @@ class TestEmployeeDashboard(unittest.TestCase):
         button.click().run()
         self.assertFalse(dashboard.exception)
 
+    # Tuần 4 | Cố tình để trống title để kiểm tra dữ liệu vẫn còn trước khi gửi lại.
     def test_creation_keeps_failed_draft_and_resets_after_success(self):
         dashboard = self.open_dashboard()
         description = "The printer on floor 2 shows a paper jam."
@@ -96,6 +102,7 @@ class TestEmployeeDashboard(unittest.TestCase):
         self.assertIsNone(dashboard.radio(key="employee_review_action").value)
         self.assertEqual(dashboard.text_area(key="employee_review_note").value, "")
 
+    # Tuần 3 | Một phiên đóng ticket trước. Phiên cũ không được sửa ticket còn trong danh sách.
     def test_stale_selection_does_not_update_another_ticket(self):
         stale_dashboard = self.open_dashboard()
         self.set_review(stale_dashboard, "Reopen Ticket", "Issue still occurs.")
@@ -109,6 +116,7 @@ class TestEmployeeDashboard(unittest.TestCase):
         self.assertEqual(ticket_service.get_ticket_by_id(1, self.first_ticket)[2], "closed")
         self.assertEqual(ticket_service.get_ticket_by_id(1, self.second_ticket)[2], "resolved")
 
+    # Sau Tuần 4 | Trạng thái lại là resolved, nhưng version mới phải làm lần xác nhận cũ thất bại.
     def test_stale_review_rejects_same_status_after_reopen_and_resolve(self):
         stale = self.open_dashboard()
         self.set_review(stale, "Close Ticket", "Confirmation after the first fix.")
@@ -135,6 +143,7 @@ class TestEmployeeDashboard(unittest.TestCase):
         self.assertEqual(ticket_service.get_ticket_by_id(1, self.first_ticket)[2], "resolved")
         self.assertEqual(ticket_service.get_ticket_by_id(1, self.second_ticket)[2], "resolved")
 
+    # Bài 3.5 | Kiểm tra cả quyền trên UI lẫn service, sau đó đối chiếu lịch sử đã lưu.
     def test_reporter_reopens_and_closes_ticket_with_history(self):
         with closing(db.get_connection()) as conn, conn:
             other_reporter = conn.execute(

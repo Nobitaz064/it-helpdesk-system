@@ -1,3 +1,5 @@
+# Sau Tuần 4 | Xác thực OIDC và lấy quyền Helpdesk từ tài khoản trong SQLite.
+
 """Authenticate dashboard requests and resolve roles from the Helpdesk database."""
 
 import logging
@@ -53,6 +55,7 @@ def validate_identity(issuer, subject):
     ):
         raise ValueError("Subject must be a non-empty OIDC subject of at most 255 ASCII characters.")
 
+    # Giữ nguyên cặp ID do nhà cung cấp cấp để truy vấn đúng bản ghi enrollment.
     return issuer, subject
 
 
@@ -66,6 +69,7 @@ def database_auth_mode(conn):
 
 def _deny(message: str) -> NoReturn:
     st.error(message)
+    # Dừng lượt chạy hiện tại trước khi dashboard có thể đọc hoặc ghi ticket.
     st.stop()
 
 
@@ -76,6 +80,7 @@ def _show_sign_in() -> NoReturn:
     except (StreamlitAPIException, OSError):
         settings = None
 
+    # Kiểm tra cấu hình trước khi gọi Streamlit login. Thiếu secret thì báo lỗi ngay tại đây.
     if not isinstance(settings, Mapping) or not all(
         isinstance(settings.get(key), str) and settings[key].strip() for key in _AUTH_SETTINGS
     ):
@@ -109,6 +114,7 @@ def _authenticated_identity():
             _deny("Could not sign out. Contact your Helpdesk administrator.")
         st.stop()
 
+    # Kiểm tra hạn dùng claim trước khi ánh xạ sang tài khoản Helpdesk.
     expires_at = user.get("exp")
     if type(expires_at) not in (int, float) or not time.time() < expires_at < inf:
         _deny("Your sign-in has expired or is invalid. Sign out and sign in again.")
@@ -131,7 +137,7 @@ def require_user(role: str, *, landing: bool = False) -> int:
     identity = _authenticated_identity() if mode == "oidc" else None
     try:
         with closing(get_connection()) as conn:
-            # Company pilot: demo IDs work only when the database is also in demo mode.
+            # Đối chiếu cả cấu hình tiến trình và DB để ID demo chỉ hoạt động với dữ liệu demo.
             if database_auth_mode(conn) != mode:
                 _deny("Helpdesk is configured for a different database sign-in mode.")
             if mode == "demo":
@@ -140,7 +146,8 @@ def require_user(role: str, *, landing: bool = False) -> int:
                     (DEMO_USERS[role], role),
                 ).fetchone()
             else:
-                # OIDC supplies the identity. Read the current enrollment and role from SQLite.
+                # Đăng nhập cho biết danh tính. SQLite quyết định danh tính đó có quyền gì
+                # trong Helpdesk. Gỡ liên kết thì lượt chạy tiếp theo sẽ bị từ chối.
                 account = conn.execute(
                     """
                     SELECT U.USER_ID, U.FULL_NAME, U.ROLE
@@ -160,6 +167,7 @@ def require_user(role: str, *, landing: bool = False) -> int:
         _deny("Your organization account is not enrolled in Helpdesk.")
 
     user_id, full_name, registered_role = account
+    # Trang vào có thể chuyển hướng theo role. URL dashboard trực tiếp vẫn kiểm tra role.
     if registered_role != role:
         if mode == "oidc" and role == "employee" and landing and registered_role in ROLE_PAGES:
             st.switch_page(ROLE_PAGES[registered_role])

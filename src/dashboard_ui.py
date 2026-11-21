@@ -1,3 +1,5 @@
+# Sau Tuần 4 | UI dùng chung để phân trang, xem lịch sử và chống gửi form cũ.
+
 """Streamlit helpers shared by Employee, Technician, and Admin pages."""
 
 import logging
@@ -15,7 +17,7 @@ LOGGER = logging.getLogger(__name__)
 
 def show_service_error(message, error):
     if isinstance(error, (sqlite3.Error, OSError)) and not isinstance(error, PermissionError):
-        # Log the operation and exception type without logging ticket content.
+        # Log tên thao tác và loại exception để tra lỗi mà giữ kín nội dung ticket.
         LOGGER.error("%s (%s)", message, type(error).__name__)
         st.error(f"{message}. Try again or contact IT if the problem persists.")
     else:
@@ -27,9 +29,11 @@ def ticket_page(scope, viewer_id, **filters):
     key = f"{scope}_page"
     criteria = (viewer_id, tuple(filters.items()))
     previous_criteria, previous_offset = st.session_state.get(key, (None, 0))
+    # Đổi tài khoản hoặc bộ lọc thì quay lại trang đầu.
     offset = previous_offset if previous_criteria == criteria else 0
-    # Company pilot: one extra row tells us whether to enable Next.
+    # Đọc thêm một dòng để biết còn trang sau. Chỉ hiển thị PAGE_SIZE dòng.
     rows = get_tickets(viewer_id, limit=PAGE_SIZE + 1, offset=offset, **filters)
+    # Dữ liệu có thể thay đổi giữa hai lần bấm, khiến trang đang xem trống.
     if not rows and offset:
         offset = 0
         rows = get_tickets(viewer_id, limit=PAGE_SIZE + 1, **filters)
@@ -54,6 +58,7 @@ def ticket_page(scope, viewer_id, **filters):
     return rows[:PAGE_SIZE]
 
 
+# Đổi tuple từ service sang cột có tên để ba dashboard hiển thị cùng định dạng.
 def show_ticket_table(rows, empty_message):
     if not rows:
         st.info(empty_message)
@@ -77,7 +82,8 @@ def show_ticket_table(rows, empty_message):
 
 
 def expected_version(scope, viewer_id, ticket_id):
-    # Use the version saved when this user saw the form.
+    # Dùng version lúc người dùng nhìn thấy form. Đọc lại lúc submit sẽ lấy version mới
+    # và có thể bỏ qua xung đột. Đối chiếu owner để tránh dùng dữ liệu của phiên trước.
     owner, versions = st.session_state.get(f"{scope}_versions", (None, {}))
     version = versions.get(ticket_id) if owner == viewer_id else None
     if version is None:
@@ -87,6 +93,7 @@ def expected_version(scope, viewer_id, ticket_id):
 
 def remember_versions(scope, viewer_id, rows):
     """Store versions sent on this render for use on the next form submission."""
+    # Lưu theo form, user và ID ticket. ticket[7] là cột VERSION khi include_version=True.
     st.session_state[f"{scope}_versions"] = (
         viewer_id,
         {ticket[0]: ticket[7] for ticket in rows},
@@ -102,6 +109,7 @@ def show_ticket_detail(scope, viewer_id):
         if ticket_id is None:
             return
         try:
+            # Service kiểm tra phạm vi trước khi trả mô tả và lịch sử cho UI.
             details = get_ticket_detail(viewer_id, ticket_id)
         except SERVICE_ERRORS as error:
             show_service_error("Cannot load ticket details", error)

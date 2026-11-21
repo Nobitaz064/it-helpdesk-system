@@ -1,3 +1,5 @@
+# Tuần 2 | Service xử lý quy tắc nghiệp vụ trước khi truy vấn hoặc ghi SQLite.
+# Sau Tuần 4 | Thêm version, phân trang, chi tiết ticket và chuyển người xử lý.
 
 from src.db import get_connection
 
@@ -13,13 +15,15 @@ def _validate_version(expected_version):
 
 
 def _check_version(expected_version, current_version):
-    # Company pilot: a ticket can return to the same status at a newer version.
+    # Sau Tuần 4 | Ticket có thể quay lại resolved sau một lần mở lại.
+    # So version để phát hiện form cũ dù trạng thái hiện tại trùng trạng thái đã thấy.
     if expected_version is not None and expected_version != current_version:
         raise RuntimeError("Ticket version conflict. Refresh and try again.")
 
 
 def _ticket_scope(conn, viewer_id):
-    # Week 2: share one visibility rule across list, count, and detail queries.
+    # Tuần 2 | Employee chỉ thấy ticket mình tạo, Technician chỉ thấy ticket được giao,
+    # Admin thấy toàn bộ. Bỏ scope khỏi một truy vấn có thể lộ dữ liệu ở màn hình đó.
     viewer = conn.execute(
         "SELECT ROLE FROM USERS WHERE USER_ID = ?", (viewer_id,)
     ).fetchone()
@@ -35,11 +39,11 @@ def _ticket_scope(conn, viewer_id):
     raise ValueError("Invalid user role")
 
 
-# Week 2: validate the request before creating the ticket and its first audit row.
+# Tuần 2 | Tạo ticket và bản ghi lịch sử đầu tiên.
 def create_ticket(title, description, reporter_id,
                   category_id, priority="medium"):
 
-    # STEP 1: Validate input
+    # Service kiểm tra đầu vào vì test và script cũng gọi hàm ngoài form Streamlit.
     if not isinstance(title, str) or not title.strip():
         raise ValueError("Ticket title cannot be empty")
 
@@ -67,7 +71,8 @@ def create_ticket(title, description, reporter_id,
     conn = get_connection()
 
     try:
-        # The new ticket and its history entry commit or roll back together.
+        # with conn commit khi cả hai lệnh ghi thành công. Nếu ghi lịch sử lỗi,
+        # SQLite rollback luôn ticket vừa tạo.
         with conn:
 
             # Check reporter
@@ -107,7 +112,7 @@ def create_ticket(title, description, reporter_id,
                 priority
             ))
 
-            # STEP 5: Get generated ticket ID
+            # lastrowid lấy ID vừa tạo trên kết nối này để ghi đúng ticket vào lịch sử.
             ticket_id = cursor.lastrowid
 
             # STEP 6: Record ticket history
@@ -132,12 +137,12 @@ def create_ticket(title, description, reporter_id,
 
 
 # =====================================
-# LESSON 2.3: VIEW TICKETS
+# Tuần 2 | Bài 2.3 — Xem, tìm kiếm và lọc ticket.
 # =====================================
 
 
 # =====================================
-# HELPER: ESCAPE LIKE CHARACTERS
+# Thoát !, % và _ để LIKE hiểu ký tự người dùng nhập theo nghĩa đen.
 # =====================================
 
 def escape_like(text):
@@ -158,6 +163,7 @@ def _search_filters(keyword, status):
         keyword = keyword.strip()
         if len(keyword) > 100:
             raise ValueError("Keyword is too long")
+    # Truyền từ khóa dưới dạng tham số ?. Hai dấu % ngoài mẫu cho phép tìm chuỗi con.
     if keyword:
         conditions += """
             AND (
@@ -207,6 +213,7 @@ def get_tickets(
     conn = get_connection()
     try:
         scope, params = _ticket_scope(conn, viewer_id)
+        # Form sửa ticket cần cột version. Danh sách thường giữ dạng bảy cột.
         version_column = ", T.VERSION" if include_version else ""
         query = f"""
             SELECT
@@ -219,6 +226,8 @@ def get_tickets(
             LEFT JOIN USERS AS TECH ON T.ASSIGNED_TO = TECH.USER_ID
             WHERE 1 = 1
         """
+        # LEFT JOIN ở trên giữ cả ticket chưa có kỹ thuật viên.
+        # Ghép phạm vi người dùng trước các bộ lọc tìm kiếm.
         query += scope + filters
         params.extend(filter_params)
         if priority is not None:
@@ -227,6 +236,7 @@ def get_tickets(
         if category_id is not None:
             query += " AND T.CATEGORY_ID = ?"
             params.append(category_id)
+        # Sau Tuần 4 | Thứ tự cố định theo ưu tiên, thời gian và ID để phân trang ổn định.
         if sort == "priority":
             query += """
                 ORDER BY CASE T.PRIORITY
@@ -247,7 +257,8 @@ def get_tickets(
 
 
 def get_ticket_counts(viewer_id, *, keyword=None, status=None):
-    # Company pilot: count all matching rows in SQL independently of page size.
+    # Sau Tuần 4 | GROUP BY đếm toàn bộ kết quả cùng phạm vi lọc.
+    # Nếu lấy len() từ bảng đã phân trang thì tổng chỉ tối đa bằng kích cỡ trang.
     if type(viewer_id) is not int or viewer_id <= 0:
         raise ValueError("Invalid viewer ID")
     filters, filter_params = _search_filters(keyword, status)
@@ -266,7 +277,7 @@ def get_ticket_counts(viewer_id, *, keyword=None, status=None):
 
 
 # =====================================
-# LESSON 2.3.2: SEARCH TICKET BY ID
+# Tuần 2 | Bài 2.3.2 — Tra ID trong phạm vi ticket người dùng được xem.
 # =====================================
 
 def get_ticket_by_id(viewer_id, ticket_id):
@@ -293,7 +304,7 @@ def get_ticket_by_id(viewer_id, ticket_id):
         conn.close()
 
 
-# Company pilot: load the original report and ordered history after checking visibility.
+# Sau Tuần 4 | Đọc mô tả và lịch sử sau khi lọc quyền xem ticket.
 def get_ticket_detail(viewer_id, ticket_id):
     if type(viewer_id) is not int or viewer_id <= 0:
         raise ValueError("Invalid viewer ID")
@@ -302,7 +313,7 @@ def get_ticket_detail(viewer_id, ticket_id):
 
     conn = get_connection()
     try:
-        # Read permissions, ticket details and history from the same snapshot.
+        # Dùng cùng một snapshot cho quyền, chi tiết và lịch sử để tránh đọc lẫn hai lần cập nhật.
         conn.execute("BEGIN")
         scope, params = _ticket_scope(conn, viewer_id)
         detail = conn.execute("""
@@ -346,9 +357,10 @@ def get_ticket_detail(viewer_id, ticket_id):
 
 
 # =====================================
-# LESSON 2.4: ASSIGN TECHNICIAN
+# Tuần 2 | Bài 2.4 — Admin giao ticket open cho Technician.
 # =====================================
 
+# Kiểm tra quyền cả ở service vì lọc danh sách trên giao diện chỉ hỗ trợ chọn.
 def _check_assignment_roles(conn, technician_id, admin_id):
     admin = conn.execute(
         "SELECT ROLE FROM USERS WHERE USER_ID = ?", (admin_id,)
@@ -408,6 +420,7 @@ def assign_ticket(ticket_id, technician_id, admin_id,
             if assigned_to is not None:
                 raise ValueError("Ticket already has a technician")
 
+            # Gộp điều kiện vào UPDATE để giao ticket chỉ khi dòng vẫn khớp dữ liệu vừa đọc.
             cursor = conn.execute("""
                 UPDATE TICKETS
                 SET ASSIGNED_TO = ?, STATUS = 'in_progress',
@@ -427,7 +440,8 @@ def assign_ticket(ticket_id, technician_id, admin_id,
         conn.close()
 
 
-# Company pilot: record both technicians while the ticket remains in progress.
+# Sau Tuần 4 | Đổi người xử lý cho ticket in_progress, giữ trạng thái
+# và ghi cả người cũ lẫn người mới để tra lại khi bàn giao.
 def reassign_ticket(ticket_id, technician_id, admin_id, note, *, expected_version):
     for value in (ticket_id, technician_id, admin_id):
         if type(value) is not int or value <= 0:
@@ -480,7 +494,7 @@ def reassign_ticket(ticket_id, technician_id, admin_id, note, *, expected_versio
 
 
 # =====================================
-# LESSON 2.5: UPDATE TICKET STATUS
+# Tuần 2 | Bài 2.5 — Quy tắc đổi trạng thái cho các form ở Tuần 3.
 # =====================================
 
 def update_ticket_status(ticket_id, new_status,
@@ -541,7 +555,7 @@ def update_ticket_status(ticket_id, new_status,
 
             old_status, reporter_id, technician_id, version = ticket
 
-            # STEP 5: Check valid status transitions
+            # Danh sách cặp trước/sau ngăn nhảy bước, ví dụ open đi thẳng sang closed.
             allowed_transitions = (
                 ("in_progress", "resolved"),
                 ("resolved", "closed"),
@@ -553,7 +567,8 @@ def update_ticket_status(ticket_id, new_status,
                     "Invalid ticket status transition"
                 )
 
-            # STEP 6: Check permissions
+            # Kiểm tra vai trò và quan hệ với ticket. Ví dụ, Technician chỉ được resolve
+            # ticket giao cho chính mình.
             if new_status == "resolved":
 
                 if role != "technician" or technician_id != actor_id:
@@ -570,7 +585,8 @@ def update_ticket_status(ticket_id, new_status,
 
             _check_version(expected_version, version)
 
-            # Company pilot: SQL checks the version again at the moment it writes.
+            # Sau Tuần 4 | Kiểm tra version ngay trong UPDATE và tăng version khi ghi.
+            # rowcount khác 1 nghĩa là điều kiện không khớp, nên dừng trước khi ghi lịch sử.
             cursor = conn.execute("""
                 UPDATE TICKETS
                 SET
@@ -592,7 +608,7 @@ def update_ticket_status(ticket_id, new_status,
                     "Ticket status update conflict"
                 )
 
-            # Week 2: keep the audit write in this transaction with the status update.
+            # Tuần 2 | Giữ lịch sử cùng giao dịch với thay đổi trạng thái để có thể rollback cả hai.
             conn.execute("""
                 INSERT INTO TICKET_HISTORY
                 (
@@ -618,6 +634,6 @@ def update_ticket_status(ticket_id, new_status,
         conn.close()
 
 
-# STEP 8: Test the function
+# Test nghiệp vụ nằm trong tests/test_ticket_service.py.
 if __name__ == "__main__":
     print("Use separate commands to test ticket services.")

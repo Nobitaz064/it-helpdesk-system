@@ -1,3 +1,6 @@
+# Tuần 4 | Đi hết vòng đời ticket qua ba dashboard và đối chiếu lịch sử trong SQLite.
+# Sau Tuần 4 | Kiểm thử chi tiết ticket, phân trang và quyền với danh tính OIDC giả lập.
+
 import os
 import tempfile
 import time
@@ -19,7 +22,7 @@ ADMIN_PAGE = "pages/2_Admin_Dashboard.py"
 
 class TestTicketWorkflow(unittest.TestCase):
     def setUp(self):
-        # Week 4: each AppTest run starts with an isolated SQLite database.
+        # Tuần 4 | Mỗi test có DB tạm, tự dọn khi kết thúc.
         self.enterContext(patch.dict(os.environ, {"HELPDESK_AUTH_MODE": "demo"}))
         folder = self.enterContext(tempfile.TemporaryDirectory())
         database_path = Path(folder) / "helpdesk.db"
@@ -30,6 +33,7 @@ class TestTicketWorkflow(unittest.TestCase):
     def submit_form(self, app, label):
         button = next((button for button in app.button if button.label == label), None)
         self.assertIsNotNone(button, f"Expected to find the {label!r} button")
+        # click() đặt thao tác của widget. run() mới chạy lại script Streamlit để submit.
         button.click().run()
         self.assertFalse(app.exception, f"{label}: {app.exception}")
         self.assertFalse(app.error, f"{label}: {app.error}")
@@ -48,7 +52,7 @@ class TestTicketWorkflow(unittest.TestCase):
         self.submit_form(app, "Submit Decision")
 
     def test_create_assign_resolve_reopen_and_close(self):
-        # Week 4: exercise actual dashboard actions, then verify their SQLite history.
+        # Tuần 4 | Dùng chính widget của ba vai trò và theo dõi cùng một ticket_id.
         app = AppTest.from_file(str(APP)).run()
         self.assertFalse(app.exception)
         title = "Wi-Fi disconnects after restart"
@@ -100,11 +104,13 @@ class TestTicketWorkflow(unittest.TestCase):
                 ("resolved", "closed", 1, "Confirmed Wi-Fi works."),
             ],
         )
+        # Sau Tuần 4 | Mở chi tiết và xác nhận sáu sự kiện hiện ra trên UI.
         app.number_input(key="employee_detail").set_value(int(ticket_id)).run()
         self.assertFalse(app.exception)
         self.assertIn("The laptop loses Wi-Fi after each restart.", [item.value for item in app.text])
         self.assertEqual(len(app.dataframe[1].value), 6)
 
+    # Sau Tuần 4 | 30 ticket tạo hai trang 25 và 5 dòng. Metric vẫn đếm đủ 30.
     def test_admin_table_paginates_and_keeps_full_totals(self):
         for count in range(30):
             ticket_service.create_ticket(f"Test #{count}", "Page fixture", 1, 2)
@@ -123,6 +129,7 @@ class TestTicketWorkflow(unittest.TestCase):
         app.text_input[0].set_value("Test #29").run()
         self.assertEqual(app.dataframe[0].value["Title"].tolist(), ["Test #29"])
 
+    # Sau Tuần 4 | Hai Employee chỉ thấy ticket của mình. URL Admin phải từ chối.
     def test_company_dashboards_scope_ticket_rows_to_signed_in_user(self):
         init_db.init_db(production=True)
         issuer = "https://login.example.test/organization"

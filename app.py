@@ -1,3 +1,6 @@
+# Tuần 3 | Bài 3.2 — Employee tạo/xem ticket. Bài 3.5 — Đóng hoặc mở lại.
+# Tuần 4 | Giữ bản nháp khi lỗi và reset form sau khi ghi thành công.
+# Sau Tuần 4 | Xác thực, phân trang, lịch sử và kiểm tra version khi submit.
 
 from contextlib import closing
 
@@ -23,7 +26,7 @@ from src.ticket_service import (
 
 
 # =====================================
-# LESSON 3.2: EMPLOYEE DASHBOARD
+# Tuần 3 | Bài 3.2 — Employee Dashboard
 # =====================================
 
 # STEP 1: Page configuration
@@ -33,18 +36,18 @@ st.set_page_config(
     layout="wide"
 )
 
-# Company pilot: resolve the user before loading Employee data or accepting a form.
+# Sau Tuần 4 | Lấy ID từ xác thực trước khi tải dữ liệu hoặc xử lý form.
 employee_id = require_user("employee", landing=True)
 
 
-# Display ticket creation result after the form version has changed.
+# Tuần 4 | pop() hiển thị thông báo một lần sau khi Streamlit chạy lại file.
 create_message = st.session_state.pop("employee_create_success", None)
 
 if create_message:
     st.success(create_message)
 
 
-# Display ticket review result
+# Tuần 4 | Đặt lại giá trị widget trước khi dựng form review ở lượt chạy mới.
 review_message = st.session_state.pop(
     "employee_review_success", None
 )
@@ -76,6 +79,7 @@ except SERVICE_ERRORS as error:
     show_service_error("Cannot load categories", error)
     st.stop()
 
+# Dùng ID làm giá trị gửi về service và tên danh mục làm nhãn hiển thị.
 categories = {
     category_id: category_name
     for category_id, category_name in category_rows
@@ -92,7 +96,7 @@ if not categories:
 
 st.header("Create New Ticket")
 
-# Week 4: keep the same form after validation errors to preserve the user's draft.
+# Tuần 4 | Giữ nguyên ID form khi validation lỗi để người dùng sửa bản nháp.
 create_form_version = st.session_state.get("employee_create_form_version", 0)
 with st.form(f"create_ticket_form_{create_form_version}"):
 
@@ -130,6 +134,7 @@ with st.form(f"create_ticket_form_{create_form_version}"):
 
 if submitted:
 
+    # Gửi ID từ phiên đăng nhập để ticket gắn đúng người tạo.
     try:
         ticket_id = create_ticket(
             title=title,
@@ -146,7 +151,7 @@ if submitted:
         st.session_state["employee_create_success"] = (
             f"Ticket #{ticket_id} created successfully!"
         )
-        # Use a fresh form ID so the browser discards the submitted draft.
+        # Chỉ đổi ID sau khi service đã commit. Lượt chạy sau sẽ dựng form trống.
         st.session_state["employee_create_form_version"] = create_form_version + 1
         st.rerun()
 
@@ -159,6 +164,7 @@ st.divider()
 st.header("My Tickets")
 
 try:
+    # Sau Tuần 4 | Trang chỉ lấy một nhóm ticket. Service lọc theo employee_id.
     tickets = ticket_page("employee_tickets", employee_id)
     show_ticket_table(tickets, "You have not created any tickets yet.")
 except SERVICE_ERRORS as error:
@@ -168,7 +174,7 @@ show_ticket_detail("employee", employee_id)
 
 
 # =====================================
-# LESSON 3.5: CLOSE / REOPEN TICKET
+# Tuần 3 | Bài 3.5 — Đóng hoặc mở lại ticket đã xử lý
 # =====================================
 
 st.divider()
@@ -195,7 +201,7 @@ else:
         for ticket in resolved_tickets
     }
 
-    # STEP 3: Create review form
+    # Giữ ID ticket trong selectbox vì hai ticket có thể có cùng tiêu đề.
     with st.form("employee_review_form"):
 
         selected_ticket_id = st.selectbox(
@@ -232,7 +238,7 @@ else:
 
     # STEP 4: Validate and process decision
     if not submitted:
-        # Company pilot: store what the form displayed for the next submission.
+        # Sau Tuần 4 | Lưu version khi hiển thị. Lượt submit dùng chính version này.
         remember_versions("employee_review", employee_id, resolved_tickets)
     else:
 
@@ -243,6 +249,8 @@ else:
             st.error("Please provide a note.")
 
         else:
+            # Mở lại đưa ticket về in_progress và giữ người xử lý hiện tại.
+            # Service kiểm tra người tạo, trạng thái, version và ghi lịch sử.
             new_status = (
                 "closed"
                 if action == "Close Ticket"

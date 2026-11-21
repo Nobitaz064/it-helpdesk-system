@@ -1,11 +1,12 @@
+# Tuần 2 | Tạo kết nối SQLite dùng chung cho service và dashboard.
 
 import os
 import sqlite3
 from pathlib import Path
 
-# 1. Locate the existing database
+# Dựa vào đường dẫn file để chạy được từ thư mục làm việc khác.
 BASE_DIR = Path(__file__).resolve().parent.parent
-# Company pilot: select separate storage for demo, pilot, and restore environments.
+# Sau Tuần 4 | HELPDESK_DB_PATH chọn DB cho demo, pilot, test hoặc bản khôi phục.
 configured_path = os.environ.get("HELPDESK_DB_PATH")
 DB_PATH = (
     Path(configured_path).expanduser().resolve()
@@ -14,7 +15,7 @@ DB_PATH = (
 )
 
 
-# Week 2: every connection enables SQLite's checks for related records.
+# Kiểm tra file trước khi kết nối vì sqlite3.connect() tự tạo file rỗng nếu đường dẫn chưa có.
 def get_connection():
     if not DB_PATH.is_file():
         raise FileNotFoundError(
@@ -22,11 +23,13 @@ def get_connection():
         )
 
     conn = sqlite3.connect(DB_PATH)
+    # SQLite cần bật kiểm tra khóa ngoại trên từng kết nối. Bỏ dòng này thì SQLite có thể
+    # chấp nhận liên kết tới user hoặc danh mục không tồn tại.
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
-# 3. Test the connection
+# Tuần 2 | Chạy trực tiếp để kiểm tra đường dẫn, bảng, khóa ngoại và dữ liệu mẫu.
 if __name__ == "__main__":
     conn = get_connection()
 

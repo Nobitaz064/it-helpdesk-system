@@ -1,7 +1,10 @@
+# Sau Tuần 4 | Chạy toàn bộ test khi push hoặc mở/cập nhật pull request.
+
 name: Helpdesk tests
 
 on: [push, pull_request]
 
+# Suite chỉ cần đọc repo, gồm cả bước checkout.
 permissions:
   contents: read
 
@@ -14,5 +17,6 @@ jobs:
         with:
           python-version: "3.14"
           cache: pip
+      # Dùng cùng dependencies và lệnh unittest như khi chạy local.
       - run: python -m pip install -r requirements.txt
       - run: python -m unittest discover -s tests -v

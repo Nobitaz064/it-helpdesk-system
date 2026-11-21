@@ -1,1 +1,4 @@
+# Tuần 3 | Streamlit chạy dashboard. Ghim phiên bản để máy local và CI dùng cùng API.
+# Sau Tuần 4 | Extra [auth] cài thành phần cần cho Streamlit đăng nhập OIDC.
+
 streamlit[auth]==1.67.0

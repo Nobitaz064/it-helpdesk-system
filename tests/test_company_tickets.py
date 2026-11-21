@@ -1,3 +1,5 @@
+# Sau Tuần 4 | Kiểm thử chi tiết, phân trang, version và bàn giao ở tầng service.
+
 import sqlite3
 import tempfile
 import unittest
@@ -17,6 +19,7 @@ class TestCompanyTicketService(unittest.TestCase):
         self.enterContext(patch.object(db, "DB_PATH", db_path))
         init_db.init_db()
 
+        # Tạo thêm mỗi vai trò một tài khoản để kiểm tra quyền theo cả role lẫn ID.
         with closing(db.get_connection()) as conn, conn:
             self.other_employee = conn.execute(
                 "INSERT INTO USERS (FULL_NAME, EMAIL, ROLE) VALUES (?, ?, ?)",
@@ -27,6 +30,7 @@ class TestCompanyTicketService(unittest.TestCase):
                 ("Dung", "dung@example.com", "technician"),
             ).lastrowid
 
+    # Một ticket chưa giao bị ẩn với Technician. Sau khi giao, người được giao đọc được lịch sử.
     def test_ticket_detail_includes_history_and_honors_viewer_scope(self):
         ticket_id = service.create_ticket("Printer stuck", "Queue stops after restart.", 1, 2)
         self.assertIsNone(service.get_ticket_detail(2, ticket_id))
@@ -51,6 +55,7 @@ class TestCompanyTicketService(unittest.TestCase):
         self.assertIsNone(assigned["old_assignee"])
         self.assertEqual(assigned["new_assignee"], "Binh")
 
+    # Đối chiếu hai trang và số tổng để bắt lỗi sắp xếp hoặc quên phạm vi lọc.
     def test_pages_priority_order_and_filtered_counts_share_viewer_scope(self):
         critical_first = service.create_ticket("First critical", "VPN", 1, 2, "critical")
         critical_second = service.create_ticket("Second critical", "VPN", 1, 2, "critical")
@@ -74,6 +79,7 @@ class TestCompanyTicketService(unittest.TestCase):
         self.assertEqual(service.get_ticket_counts(2, keyword="Missing")["in_progress"], 0)
         self.assertEqual(service.get_ticket_counts(3)["open"], 4)
 
+    # Tái hiện cùng trạng thái resolved, rồi thử với cả version cũ và version hiện tại.
     def test_old_review_cannot_close_after_a_reopen_and_resolve_cycle(self):
         ticket_id = service.create_ticket("Wi-Fi drops", "Disconnects in meetings.", 1, 2)
         service.assign_ticket(ticket_id, 2, 3)
@@ -126,6 +132,7 @@ class TestCompanyTicketService(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Reassignment reason cannot be empty"):
             service.reassign_ticket(ticket_id, 2, 3, " ", expected_version=3)
 
+    # Khi ghi lịch sử bàn giao lỗi, người xử lý và version cũ đều phải được giữ.
     def test_handoff_rolls_back_when_history_write_fails(self):
         ticket_id = service.create_ticket("Broken keyboard", "Several keys fail.", 1, 2)
         service.assign_ticket(ticket_id, 2, 3)

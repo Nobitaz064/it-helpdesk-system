@@ -1,3 +1,6 @@
+# Tuần 3 | Bài 3.4 — Admin xem tổng quan, lọc và phân công ticket.
+# Sau Tuần 4 | Xác thực, phân trang, thống kê SQL và chuyển người xử lý.
+
 from contextlib import closing
 
 import streamlit as st
@@ -16,11 +19,13 @@ from src.db import get_connection
 from src.ticket_service import assign_ticket, get_ticket_counts, reassign_ticket
 
 
-# Lesson 3.4: view the queue and assign technicians.
+# Tuần 3 | Cấu hình trang trước khi tạo widget Streamlit.
 st.set_page_config(page_title="Admin Dashboard", page_icon="📋", layout="wide")
+# Sau Tuần 4 | Xác thực Admin trước khi đọc hàng đợi hay gọi thao tác phân công.
 admin_id = require_user("admin")
 st.title("Admin Dashboard")
 
+# Reset đúng form vừa ghi thành công. Mỗi form có nhóm key riêng.
 for scope in ("assignment", "reassignment"):
     message = st.session_state.pop(f"{scope}_success", None)
     if message:
@@ -33,6 +38,7 @@ for scope in ("assignment", "reassignment"):
 st.subheader("Ticket Overview")
 
 try:
+    # Tổng quan dùng toàn bộ hàng đợi, nên vẫn giữ số tổng khi bảng phía dưới được lọc.
     counts = get_ticket_counts(admin_id)
 except SERVICE_ERRORS as error:
     show_service_error("Cannot load dashboard metrics", error)
@@ -77,6 +83,7 @@ show_ticket_detail("admin", admin_id)
 
 try:
     with closing(get_connection()) as conn:
+        # Sau Tuần 4 | DB công ty chỉ liệt kê Technician có danh tính đã đăng ký.
         technicians = dict(conn.execute(
             """
             SELECT U.USER_ID, U.FULL_NAME
@@ -112,6 +119,7 @@ def show_assignment_form(scope, *, reassign):
         show_service_error("Cannot load assignment options", error)
         return
 
+    # row[6] là tên Technician. Giao mới cần ticket chưa có người, chuyển giao cần đã có.
     candidates = [row for row in candidates if (row[6] is not None) == reassign]
     if not candidates:
         message = "No assigned tickets are in progress." if reassign else "No unassigned open tickets."
@@ -147,7 +155,8 @@ def show_assignment_form(scope, *, reassign):
         st.error("Select both a ticket and a technician.")
         return
 
-    # Company pilot: the active-ticket form reuses the UI and invokes the handoff rule.
+    # Tuần 3 | Giao mới đưa ticket open sang in_progress.
+    # Sau Tuần 4 | Chuyển giao dùng cùng form, giữ in_progress và bắt buộc ghi lý do.
     operation = reassign_ticket if reassign else assign_ticket
     if not reassign:
         note = note.strip() or "Assigned to technician"

@@ -75,13 +75,14 @@ The tests cover the demo workflow, role and identity checks with simulated OIDC 
 
 | Milestone | Where to read | What to follow |
 | --- | --- | --- |
-| Week 1 — SQLite design | [Base schema](database/TICKET_MANAGEMENT.sql), [database setup](database/init_db.py), [ERD](docs/erd.md) | Foreign keys, table creation, and the status history model. |
-| Week 2 — Python service | [Connection](src/db.py), [ticket service](src/ticket_service.py), [service tests](tests/test_ticket_service.py) | Input checks, role-scoped queries, and transactions that write a ticket and its history together. |
-| Week 3 — Dashboards | [Employee, lessons 3.2 and 3.5](app.py), [Technician, lesson 3.3](pages/1_Technician_Dashboard.py), [Admin, lesson 3.4](pages/2_Admin_Dashboard.py) | How Streamlit forms call the service to create, assign, resolve, reopen, and close tickets. |
-| Week 4 — Testing and polish | [Workflow test](tests/test_ticket_workflow.py), [manual test cases](docs/ticket_workflow.md#6-manual-test-cases) | How isolated test data, browser checks, and form reset verification cover the complete workflow. |
-| After Week 4 — Company pilot | [Authentication](src/auth.py), [ticket service](src/ticket_service.py), [shared UI](src/dashboard_ui.py), [migrations](database/migrations.py), [operations guide](docs/operations.md) | Company sign-in, version checks, ticket detail and handoff, pagination, and database upgrades and backups. |
+| Week 1 — SQLite design | [Schema and SQL exercises](database/TICKET_MANAGEMENT.sql), [ERD](docs/erd.md), [Git ignore rules](.gitignore) | Tables, foreign keys, sample data, and the first ticket lifecycle in SQL. |
+| Week 2 — Python service | [Connection](src/db.py), [database initializer](database/init_db.py), [ticket service](src/ticket_service.py), [service tests](tests/test_ticket_service.py) | Initialize the Week 1 schema from Python, validate inputs, scope queries by role, and write tickets and history together. |
+| Week 3 — Dashboards | [Streamlit dependency](requirements.txt), [Employee, lessons 3.2 and 3.5](app.py), [Technician, lesson 3.3](pages/1_Technician_Dashboard.py), [Admin, lesson 3.4](pages/2_Admin_Dashboard.py), [Employee tests](tests/test_employee_dashboard.py), [Technician tests](tests/test_technician_dashboard.py) | How Streamlit forms call the service to create, assign, resolve, reopen, and close tickets. |
+| Week 4 — Testing and polish | [Workflow test](tests/test_ticket_workflow.py), [Employee form tests](tests/test_employee_dashboard.py), [Technician filter tests](tests/test_technician_dashboard.py), [manual test cases](docs/ticket_workflow.md#6-manual-test-cases) | How isolated test data, browser checks, and form reset verification cover the complete workflow. |
+| After Week 4 — Sign-in and ticket handling | [Authentication](src/auth.py), [user management](database/manage_users.py), [ticket service](src/ticket_service.py), [shared UI](src/dashboard_ui.py), [authentication tests](tests/test_auth.py), [ticket service tests](tests/test_company_tickets.py) | Company sign-in, version checks, ticket details, handoff, and pagination. |
+| After Week 4 — Database operations and CI | [Initializer](database/init_db.py), [migrations](database/migrations.py), [backup](database/backup_db.py), [database tests](tests/test_database.py), [GitHub Actions](.github/workflows/tests.yml), [operations guide](docs/operations.md) | Upgrade existing databases, verify backups, and run the test suite on GitHub. |
 
-Some files contain both the original lesson and the later pilot changes. The comments mark the decisions to follow when reading or debugging.
+Search for `Tuần 1` through `Tuần 4` or `Sau Tuần 4` to find the Vietnamese comments in source files, tests, and configuration. Files used across multiple milestones mark the added blocks near the relevant code.
 
 ## Project progress
 

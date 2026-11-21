@@ -1,3 +1,5 @@
+# Sau Tuần 4 | Kiểm thử khởi tạo, nâng cấp và sao lưu bằng SQLite thật trong thư mục tạm.
+
 import sqlite3
 import tempfile
 import unittest
@@ -31,6 +33,7 @@ class TestDatabaseOperations(unittest.TestCase):
                 ("demo",),
             )
 
+    # Chạy init hai lần để bắt lỗi vô tình bật lại demo trên DB công ty.
     def test_production_seeds_categories_without_demo_users_and_stays_production(self):
         init_db.init_db(production=True)
         init_db.init_db()
@@ -45,6 +48,7 @@ class TestDatabaseOperations(unittest.TestCase):
                 ("oidc",),
             )
 
+    # Tạo schema Tuần 1 với dữ liệu cũ để kiểm tra migration bảo toàn ID và lịch sử.
     def test_upgrade_preserves_legacy_ticket_and_history(self):
         self.db_path.parent.mkdir()
         schema = init_db.SQL_PATH.read_text(encoding="utf-8").split(init_db.SCHEMA_END, 1)[0]
@@ -81,6 +85,7 @@ class TestDatabaseOperations(unittest.TestCase):
                 connection.execute("SELECT USER_ID FROM USERS").fetchall(), [(25,)]
             )
 
+    # Cố tình tạo khóa ngoại hỏng. Gặp lỗi phải trả schema và dữ liệu về trước nâng cấp.
     def test_failed_upgrade_leaves_original_schema_and_data(self):
         self.db_path.parent.mkdir()
         schema = init_db.SQL_PATH.read_text(encoding="utf-8").split(init_db.SCHEMA_END, 1)[0]
@@ -102,6 +107,7 @@ class TestDatabaseOperations(unittest.TestCase):
             self.assertEqual(connection.execute("SELECT TITLE FROM TICKETS").fetchall(),
                              [("Broken references",)])
 
+    # Sửa nguồn sau khi sao lưu, rồi mở bản sao để xác nhận trạng thái tại thời điểm backup.
     def test_backup_restores_a_snapshot_and_refuses_overwrite(self):
         init_db.init_db()
         with closing(db.get_connection()) as connection, connection:

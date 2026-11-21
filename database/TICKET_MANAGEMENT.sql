@@ -1,12 +1,13 @@
 -- ====================================
 -- IT HELPDESK TICKET MANAGEMENT
 -- ====================================
--- Week 1: baseline schema and SQL practice. The initializer reads up to Part 2.
--- Company-pilot schema upgrades live in database/migrations.py.
+-- Tuần 1 | Thiết kế bảng, dữ liệu mẫu và thực hành vòng đời ticket bằng SQLite.
+-- init_db.py đọc tới dòng PART 2. Migration sau Tuần 4 nằm trong migrations.py.
 
+-- Bật kiểm tra khóa ngoại cho kết nối đang chạy script.
 PRAGMA foreign_keys = ON;
 
--- TABLE 1: USERS
+-- Bảng USERS | UNIQUE giữ email riêng biệt, CHECK giới hạn ba vai trò.
 
 CREATE TABLE USERS
 (
@@ -17,7 +18,7 @@ CREATE TABLE USERS
         CHECK (ROLE IN ('employee', 'technician', 'admin'))
 );
 
--- TABLE 2: CATEGORIES
+-- Bảng CATEGORIES | Ticket lưu ID danh mục. Đổi tên danh mục ở một bảng.
 
 CREATE TABLE CATEGORIES
 (
@@ -26,7 +27,7 @@ CREATE TABLE CATEGORIES
     DESCRIPTION TEXT
 );
 
--- TABLE 3: TICKETS
+-- Bảng TICKETS | Ticket mới mặc định open. ASSIGNED_TO có thể NULL khi chưa giao.
 
 CREATE TABLE TICKETS
 (
@@ -58,6 +59,7 @@ CREATE TABLE TICKETS
 );
 
 
+-- Lịch sử giữ người thực hiện, trạng thái trước/sau và ghi chú để truy vết.
 CREATE TABLE IF NOT EXISTS TICKET_HISTORY
 (
     HISTORY_ID INTEGER PRIMARY KEY,
@@ -116,6 +118,7 @@ VALUES
 
 -- =====================================
 -- PART 3: TEST QUERIES
+-- Đọc lại bảng để kiểm tra dữ liệu mẫu trước khi thực hành cập nhật.
 -- =====================================
 
 SELECT * FROM USERS;
@@ -128,6 +131,7 @@ SELECT * FROM TICKET_HISTORY;
 
 -- =====================================
 -- PART 4: ASSIGN TICKET #1
+-- Chỉ giao ticket open cho technician. changes() ngăn ghi lịch sử nếu UPDATE không đổi dòng nào.
 -- =====================================
 
 PRAGMA foreign_keys = ON;
@@ -168,6 +172,7 @@ SELECT * FROM TICKET_HISTORY WHERE TICKET_ID = 1;
 
 -- =====================================
 -- PART 5: RESOLVE TICKET #1
+-- Dùng điều kiện theo người được giao và trạng thái hiện tại, rồi xác minh cả ticket và lịch sử.
 -- =====================================
 
 BEGIN TRANSACTION; -- Nhóm cập nhật và ghi lịch sử trong cùng một giao dịch
@@ -206,6 +211,7 @@ WHERE TICKET_ID = 1;
 
 -- =====================================
 -- PART 6: CLOSE TICKET #1
+-- Employee xác nhận ticket resolved của mình. Code Python bổ sung nhánh mở lại ở Tuần 2.
 -- =====================================
 
 BEGIN TRANSACTION; -- Giữ các thao tác ghi dữ liệu nhất quán

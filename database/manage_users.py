@@ -1,3 +1,5 @@
+# Sau Tuần 4 | CLI tạo, liên kết và thu hồi tài khoản công ty trong SQLite.
+
 """Provision and revoke company identities in an initialized Helpdesk database."""
 
 import argparse
@@ -8,6 +10,7 @@ from src.auth import ROLES, database_auth_mode, validate_identity
 from src.db import get_connection
 
 
+# Kiểm tra chế độ DB trước khi thay đổi danh tính để tránh thao tác nhầm vào DB demo.
 def _require_company_database(conn):
     if database_auth_mode(conn) != "oidc":
         raise ValueError("Initialize this database in production mode before enrolling users.")
@@ -22,6 +25,7 @@ def create_user(issuer, subject, full_name, email, role):
     if role not in ROLES:
         raise ValueError("Role must be employee, technician, or admin.")
 
+    # Tạo user và liên kết OIDC trong cùng giao dịch. Trùng email hoặc danh tính sẽ rollback.
     try:
         with closing(get_connection()) as conn, conn:
             _require_company_database(conn)
@@ -39,6 +43,7 @@ def create_user(issuer, subject, full_name, email, role):
     return user_id
 
 
+# Dùng ID hiện có để người dùng giữ nguyên ticket và lịch sử khi chuyển sang đăng nhập công ty.
 def link_user(user_id, issuer, subject):
     issuer, subject = validate_identity(issuer, subject)
     if type(user_id) is not int or user_id < 1:
@@ -57,6 +62,7 @@ def link_user(user_id, issuer, subject):
         raise ValueError("That company identity is already enrolled.") from error
 
 
+# Chỉ xóa liên kết đăng nhập. USERS vẫn còn để giữ các khóa ngoại và lịch sử.
 def unlink_user(issuer, subject):
     issuer, subject = validate_identity(issuer, subject)
     with closing(get_connection()) as conn, conn:

@@ -1,3 +1,6 @@
+# Tuần 3 | Bài 3.3.1 — Xem ticket được giao. Bài 3.3.2 — Resolve ticket.
+# Tuần 4 | Giới hạn từ khóa và kiểm tra trạng thái form sau khi submit.
+# Sau Tuần 4 | Xác thực, phân trang và từ chối cập nhật từ form cũ.
 
 import streamlit as st
 
@@ -16,7 +19,7 @@ from src.ticket_service import get_ticket_counts, update_ticket_status
 
 
 # =====================================
-# LESSON 3.3.1: TECHNICIAN DASHBOARD
+# Tuần 3 | Bài 3.3.1 — Technician Dashboard
 # =====================================
 
 # STEP 1: Page configuration
@@ -26,10 +29,12 @@ st.set_page_config(
     layout="wide"
 )
 
-# Company pilot: check the role before querying the technician's assigned tickets.
+# Sau Tuần 4 | Xác thực Technician trước khi đọc ticket được giao.
 technician_id = require_user("technician")
 st.title("Technician Dashboard")
 
+# Tuần 3 | Thông báo thành công và reset widget sau khi service đã ghi xong.
+# Tuần 4 | Kiểm thử lại hành vi này khi vẫn còn ticket khác để chọn.
 if "resolve_success" in st.session_state:
     st.success(st.session_state.pop("resolve_success"))
     st.session_state["resolve_ticket"] = None
@@ -45,6 +50,7 @@ st.subheader("My Assigned Tickets")
 col1, col2 = st.columns(2)
 
 with col1:
+    # Tuần 4 | Đồng bộ giới hạn 100 ký tự với validation bên service.
     keyword = st.text_input(
         "Search Tickets",
         max_chars=100,
@@ -69,6 +75,7 @@ with col2:
 # =====================================
 
 try:
+    # Service nhận None để bỏ bộ lọc trạng thái khi chọn All.
     selected_status = (
         None if status_filter == "All"
         else status_filter
@@ -80,6 +87,7 @@ try:
         status=selected_status,
         sort="priority",
     )
+    # Sau Tuần 4 | Đếm toàn bộ ticket khớp bộ lọc, gồm cả các trang chưa xem.
     counts = get_ticket_counts(
         technician_id, keyword=keyword, status=selected_status
     )
@@ -111,7 +119,7 @@ show_ticket_detail("technician", technician_id)
 
 
 # =====================================
-# LESSON 3.3.2: RESOLVE TICKET
+# Tuần 3 | Bài 3.3.2 — Ghi chú xử lý và resolve
 # =====================================
 
 st.divider()
@@ -139,7 +147,7 @@ else:
         for ticket in active_tickets
     }
 
-    # STEP 3: Create resolution form
+    # index=None buộc chọn ID. Bỏ nó thì form có thể tự chọn ticket đầu tiên.
     with st.form("resolve_ticket_form"):
 
         selected_ticket_id = st.selectbox(
@@ -168,6 +176,7 @@ else:
 
     # STEP 4: Process resolution
     if not submitted:
+        # Sau Tuần 4 | Lưu version của ticket trên form vừa hiển thị.
         remember_versions("technician_resolve", technician_id, active_tickets)
     else:
 
@@ -180,6 +189,7 @@ else:
             )
 
         else:
+            # Service kiểm tra lại quyền xử lý. Khi bị chuyển ticket, form cũ có thể thất bại.
             try:
                 update_ticket_status(
                     ticket_id=selected_ticket_id,

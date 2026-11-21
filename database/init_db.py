@@ -1,3 +1,6 @@
+# Tuần 2 | Script khởi tạo DB tự động từ schema đã thiết kế ở Tuần 1.
+# Sau Tuần 4 | Nâng cấp DB đang có và tách cấu hình demo với OIDC.
+
 """Initialize a new Helpdesk database or explicitly upgrade an existing one."""
 
 import argparse
@@ -6,7 +9,7 @@ import sys
 from contextlib import closing
 from pathlib import Path
 
-# Keep the original script entry point working alongside python -m.
+# Khi chạy file trực tiếp, thêm thư mục repo để import database và src.
 if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -33,12 +36,13 @@ DEFAULT_CATEGORIES = (
 
 
 def create_base_schema(connection: sqlite3.Connection) -> None:
-    # Week 1: use the schema section only. Later sections are SQL exercises.
+    # Chỉ đọc DDL Tuần 1. Chạy cả file sẽ nạp ticket mẫu và thực thi các bài UPDATE.
     schema, marker, _ = SQL_PATH.read_text(encoding="utf-8").partition(SCHEMA_END)
     if not marker:
         raise RuntimeError("Schema section marker not found")
 
-    # executescript() can commit a pending transaction before running its SQL.
+    # Thực thi từng câu SQL vì executescript() có thể commit sớm.
+    # Giữ schema, seed và migration trong giao dịch của init_db().
     statement = ""
     for line in schema.splitlines(keepends=True):
         statement += line
@@ -51,6 +55,7 @@ def init_db(*, production: bool = False) -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with closing(sqlite3.connect(DB_PATH)) as connection, connection:
         connection.execute("PRAGMA foreign_keys = ON")
+        # Sau Tuần 4 | Giành quyền ghi trước khi đọc schema để hai tiến trình không cùng nâng cấp.
         connection.execute("BEGIN IMMEDIATE")
         existing_tables = {
             row[0]
@@ -59,6 +64,7 @@ def init_db(*, production: bool = False) -> None:
                 "WHERE type = 'table' AND substr(name, 1, 7) != 'sqlite_'"
             )
         }
+        # Tuần 2 | Chỉ nạp seed cho DB mới. Lần chạy lại giữ dữ liệu đang có.
         if not existing_tables:
             create_base_schema(connection)
             connection.executemany(
@@ -66,6 +72,7 @@ def init_db(*, production: bool = False) -> None:
                 "VALUES (?, ?, ?)",
                 DEFAULT_CATEGORIES,
             )
+            # Sau Tuần 4 | Tài khoản An, Bình, Chi chỉ dùng cho DB demo.
             if not production:
                 connection.executemany(
                     "INSERT INTO USERS (USER_ID, FULL_NAME, EMAIL, ROLE) VALUES (?, ?, ?, ?)",
@@ -74,7 +81,8 @@ def init_db(*, production: bool = False) -> None:
         elif not BASE_TABLES.issubset(existing_tables):
             raise RuntimeError("Existing database is missing one or more Helpdesk tables.")
 
-        # Company pilot: upgrade existing data and set its sign-in mode together.
+        # Sau Tuần 4 | Lưu schema và chế độ đăng nhập cùng nhau.
+        # INSERT OR IGNORE giữ chế độ đã lưu nếu chạy lại lệnh mặc định.
         apply_migrations(connection)
         connection.execute(
             "INSERT OR IGNORE INTO HELPDESK_SETTINGS (KEY, VALUE) VALUES ('auth_mode', ?)",
@@ -84,6 +92,7 @@ def init_db(*, production: bool = False) -> None:
             connection.execute(
                 "UPDATE HELPDESK_SETTINGS SET VALUE = 'oidc' WHERE KEY = 'auth_mode'"
             )
+        # Gặp liên kết cũ bị hỏng thì dừng để rollback toàn bộ lần nâng cấp.
         if connection.execute("PRAGMA foreign_key_check").fetchone() is not None:
             raise RuntimeError("Foreign key validation failed")
 
